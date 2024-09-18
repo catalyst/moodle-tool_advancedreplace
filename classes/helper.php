@@ -31,6 +31,52 @@ class helper {
     const ALL_COLUMNS = 'all columns';
 
     /**
+     * Get columns to search for in a table.
+     *
+     * @param string $table The table to search.
+     * @param string $column The column to search.
+     * @return array The columns to search.
+     */
+    public static function get_columns(string $table, string $column = ''): array {
+        global $DB;
+        $columns = $DB->get_columns($table);
+
+        if ($column !== self::ALL_COLUMNS) {
+            // Only search the specified column.
+            $columns = array_filter($columns, function($col) use ($column) {
+                return $col->name == $column;
+            });
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Find course field in the table.
+     *
+     * @param string $table The table to search.
+     * @return string The course field name.
+     */
+    public static function find_course_field(string $table): string {
+        global $DB;
+
+        // Potential course field names.
+        $coursefields = ['course', 'courseid'];
+
+        $columns = $DB->get_columns($table);
+        $coursefield = '';
+
+        foreach ($columns as $column) {
+            if (in_array($column->name, $coursefields)) {
+                $coursefield = $column->name;
+                break;
+            }
+        }
+
+        return $coursefield;
+    }
+
+    /**
      * Perform a plain text search on a table and column.
      *
      * @param string $search The text to search for.
@@ -45,24 +91,31 @@ class helper {
 
         $results = [];
 
-        $columns = $DB->get_columns($table);
+        $columns = self::get_columns($table, $column);
 
-        if ($column !== self::ALL_COLUMNS) {
-            // Only search the specified column.
-            $columns = array_filter($columns, function($col) use ($column) {
-                return $col->name == $column;
-            });
-        }
+        // Potential course field in the table.
+        $coursefield = self::find_course_field($table);
+
+        // Table alias.
+        $tablealias = 't';
 
         foreach ($columns as $column) {
             $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
 
-            $searchsql = $DB->sql_like($columnname, '?', false);
+            $searchsql = $DB->sql_like("$tablealias." . $columnname, '?', false);
             $searchparam = '%'.$DB->sql_like_escape($search).'%';
 
-            $sql = "SELECT id, $columnname
-                      FROM {".$table."}
-                     WHERE $searchsql";
+            if (!empty($coursefield)) {
+                $sql = "SELECT $tablealias.id,
+                               $tablealias.$columnname,
+                               $tablealias.$coursefield as courseid,
+                               c.idnumber as courseidnumber
+                          FROM {".$table."} t
+                     LEFT JOIN {course} c ON c.id = t.$coursefield
+                         WHERE $searchsql";
+            } else {
+                $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
+            }
 
             if ($column->meta_type === 'X' || $column->meta_type === 'C') {
                 $records = $DB->get_records_sql($sql, [$searchparam], 0, $limit);
@@ -82,11 +135,11 @@ class helper {
      * @param string $search The regular expression to search for.
      * @param string $table The table to search.
      * @param string $column The column to search.
-     * @param $limit The maximum number of results to return.
+     * @param int $limit The maximum number of results to return.
      * @return array
      */
     private static function regular_expression_search(string $search, string $table,
-                                                      string $column = self::ALL_COLUMNS, $limit = 0): array {
+                                                      string $column = self::ALL_COLUMNS, int $limit = 0): array {
         global $DB;
 
         // Check if the database supports regular expression searches.
@@ -96,23 +149,35 @@ class helper {
 
         $results = [];
 
-        $columns = $DB->get_columns($table);
+        $columns = self::get_columns($table, $column);
 
-        if ($column !== self::ALL_COLUMNS) {
-            // Only search the specified column.
-            $columns = array_filter($columns, function($col) use ($column) {
-                return $col->name == $column;
-            });
-        }
+        // Find Potential course field in the table.
+        $coursefield = self::find_course_field($table);
+
+        // Table alias.
+        $tablealias = 't';
 
         foreach ($columns as $column) {
             $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
 
-            $select = $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
+            $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
             $params = ['pattern' => $search];
 
             if ($column->meta_type === 'X' || $column->meta_type === 'C') {
-                $records = $DB->get_records_select($table, $select, $params, '', '*', 0, $limit);
+
+                if (!empty($coursefield)) {
+                    $sql = "SELECT $tablealias.id,
+                                   $tablealias.$columnname,
+                                   $tablealias.$coursefield as courseid,
+                                   c.idnumber as courseidnumber
+                              FROM {".$table."} $tablealias
+                         LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
+                             WHERE $select";
+                } else {
+                    $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $select";
+                }
+
+                $records = $DB->get_records_sql($sql, $params, 0, $limit);
 
                 if ($records) {
                     $results[$table][$column->name] = $records;
