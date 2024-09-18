@@ -93,7 +93,7 @@ try {
 }
 
 // Perform the search.
-$result = helper::search($search, !empty($options['regex-match']), $tables, $options['regex-match'] ? 1 : 0);
+$result = helper::search($search, !empty($options['regex-match']), $tables, $options['summary'] ? 1 : 0);
 
 // Notifying the user if no results were found.
 if (empty($result)) {
@@ -106,20 +106,25 @@ $fp = fopen('php://stdout', 'w');
 
 // Show header.
 if (!$options['summary']) {
-    fputcsv($fp, ['Table', 'Column', 'ID', 'Match']);
+    fputcsv($fp, ['Table', 'Column', 'courseid', 'idnumber', 'ID', 'Match']);
 } else {
-    fputcsv($fp, ['Table', 'Column']);
+    fputcsv($fp, ['Table', 'Column', 'courseid', 'idnumber']);
 }
 
 // Output the result.
 foreach ($result as $table => $columns) {
     foreach ($columns as $column => $rows) {
         if ($options['summary']) {
-            echo "$table, $column\n";
+            $courseid = reset($rows)->courseid ?? '';
+            $courseidnumber = reset($rows)->courseidnumber ?? '';
+            fputcsv($fp, [$table, $column, $courseid, $courseidnumber]);
         } else {
             foreach ($rows as $row) {
                 // Fields to show.
-                $id = $row->id;
+                $courseid = $row->courseid ?? '';
+                $courseidnumber = $row->courseidnumber ?? '';
+                $fields = [$table, $column, $courseid, $courseidnumber, $row->id];
+                // Matched data.
                 $data = $row->$column;
 
                 if (!empty($options['regex-match'])) {
@@ -134,12 +139,12 @@ foreach ($result as $table => $columns) {
                     if (!empty($matches[0])) {
                         // Show the result foreach match.
                         foreach ($matches[0] as $match) {
-                            fputcsv($fp, [$table, $column, $id, $match]);
+                            fputcsv($fp, array_merge($fields, [$match]));
                         }
                     }
                 } else {
                     // Show the result for simple plain text search.
-                    fputcsv($fp, [$table, $column, $id, $data]);
+                    fputcsv($fp, array_merge($fields, [$data]));
                 }
             }
         }
