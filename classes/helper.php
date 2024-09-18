@@ -16,6 +16,7 @@
 
 namespace tool_advancedreplace;
 
+use core\check\performance\debugging;
 use core\exception\moodle_exception;
 
 /**
@@ -40,6 +41,20 @@ class helper {
     public static function get_columns(string $table, string $column = ''): array {
         global $DB;
         $columns = $DB->get_columns($table);
+
+        // Make sure the table has id field.
+        $hasid = false;
+        foreach ($columns as $col) {
+            if ($col->name == 'id') {
+                $hasid = true;
+                break;
+            }
+        }
+
+        // Do not search if the table does not have id field.
+        if (!$hasid) {
+            return [];
+        }
 
         if ($column !== self::ALL_COLUMNS) {
             // Only search the specified column.
