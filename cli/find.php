@@ -131,7 +131,7 @@ foreach ($result as $table => $columns) {
                     // If the search string is a regular expression, show each matching instance.
 
                     // Replace "/" with "\/", as it is used as delimiters.
-                    $search = str_replace('/', '\\/', $search);
+                    $search = str_replace('/', '\\/', $options['regex-match']);
 
                     // Perform the regular expression search.
                     preg_match_all( "/" . $search . "/", $data, $matches);
