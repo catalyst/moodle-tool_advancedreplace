@@ -104,20 +104,23 @@ $fp = fopen($output, 'w');
 
 // Show header.
 if (!$options['summary']) {
-    fputcsv($fp, ['Table', 'Column', 'courseid', 'idnumber', 'ID', 'Match']);
+    fputcsv($fp, ['table', 'column', 'courseid', 'idnumber', 'id', 'match']);
 } else {
-    fputcsv($fp, ['Table', 'Column']);
+    fputcsv($fp, ['table', 'column']);
 }
 
 // Perform the search.
-$searchlist = helper::build_searching_list($tables, );
+[$count,$searchlist] = helper::build_searching_list($tables, );
+
+$progress = new progress_bar();
+$progress->create();
 
 // Output the result for each table.
+$columncount = 0;
 foreach ($searchlist as $table => $columns) {
     foreach ($columns as $column) {
         // Show the table and column being searched.
         $colname = $column->name;
-        echo "Searching in table: $table, column: $colname\n";
 
         // Perform the search.
         if (!empty($options['regex-match'])) {
@@ -125,8 +128,12 @@ foreach ($searchlist as $table => $columns) {
         } else {
             helper::plain_text_search($search, $table, $column, $options['summary'], $fp);
         }
+
+        $columncount++;
+        $progress->update_full(100 * $columncount / $count, "Searching in $table:$colname");
     }
 }
 
+$progress->update_full(100, "Finished searching into $output");
 fclose($fp);
 exit(0);

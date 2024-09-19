@@ -154,15 +154,18 @@ class helper {
         }
 
         // Return the list of tables and actual columns to search.
+        $count = 0;
         $actualsearchlist = [];
         foreach ($searchlist as $table => $columns) {
             $actualcolumns = self::get_columns($table, $columns, $searchstring);
+            sort($actualcolumns);
+            $count += sizeof($actualcolumns);
             if (!empty($actualcolumns)) {
                 $actualsearchlist[$table] = $actualcolumns;
             }
         }
-
-        return $actualsearchlist;
+        ksort($actualsearchlist);
+        return [$count, $actualsearchlist];
     }
 
     /**
