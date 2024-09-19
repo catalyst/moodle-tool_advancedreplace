@@ -36,6 +36,7 @@ $help =
 Options:
 --search=STRING                  String to search for.
 --regex-match=STRING             Use regular expression to match the search string.
+--output=FILE                    Output file. If not specified, output to stdout.
 --tables=tablename:columnname    Tables and columns to search. Separate multiple tables/columns with a comma.
                                  If not specified, search all tables and columns.
                                  If specify table only, search all columns in the table.
@@ -56,6 +57,7 @@ list($options, $unrecognized) = cli_get_params(
     [
         'search'  => null,
         'regex-match'  => null,
+        'output'  => null,
         'tables' => '',
         'summary' => false,
         'help'    => false,
@@ -92,17 +94,12 @@ try {
     cli_error(get_string('invalidcharacter', 'tool_advancedreplace'));
 }
 
-// Perform the search.
-$result = helper::search($search, !empty($options['regex-match']), $tables, $options['summary'] ? 1 : 0);
-
-// Notifying the user if no results were found.
-if (empty($result)) {
-    echo "No results found.\n";
-    exit(0);
-}
-
 // Start output.
-$fp = fopen('php://stdout', 'w');
+if (!empty($options['output'])) {
+    $fp = fopen($options['output'], 'w');
+} else {
+    $fp = fopen('php://stdout', 'w');
+}
 
 // Show header.
 if (!$options['summary']) {
@@ -111,40 +108,56 @@ if (!$options['summary']) {
     fputcsv($fp, ['Table', 'Column', 'courseid', 'idnumber']);
 }
 
-// Output the result.
-foreach ($result as $table => $columns) {
-    foreach ($columns as $column => $rows) {
-        if ($options['summary']) {
-            $courseid = reset($rows)->courseid ?? '';
-            $courseidnumber = reset($rows)->courseidnumber ?? '';
-            fputcsv($fp, [$table, $column, $courseid, $courseidnumber]);
-        } else {
-            foreach ($rows as $row) {
-                // Fields to show.
-                $courseid = $row->courseid ?? '';
-                $courseidnumber = $row->courseidnumber ?? '';
-                $fields = [$table, $column, $courseid, $courseidnumber, $row->id];
-                // Matched data.
-                $data = $row->$column;
+// Perform the search.
+$searchlist = helper::build_searching_list($tables);
 
-                if (!empty($options['regex-match'])) {
-                    // If the search string is a regular expression, show each matching instance.
+// Output the result for each table.
+foreach ($searchlist as $table => $columns) {
 
-                    // Replace "/" with "\/", as it is used as delimiters.
-                    $search = str_replace('/', '\\/', $options['regex-match']);
+    // Show progress.
+    echo "Searching in table $table: \n";
+    $result = helper::search($search, $table, $columns, !empty($options['regex-match']), $options['summary'] ? 1 : 0);
 
-                    // Perform the regular expression search.
-                    preg_match_all( "/" . $search . "/", $data, $matches);
+    // Notifying the user if no results were found.
+    if (empty($result)) {
+        echo "No results found.\n";
+    }
 
-                    if (!empty($matches[0])) {
-                        // Show the result foreach match.
-                        foreach ($matches[0] as $match) {
-                            fputcsv($fp, array_merge($fields, [$match]));
+    // Output the result.
+    foreach ($result as $table => $columns) {
+        foreach ($columns as $column => $rows) {
+            if ($options['summary']) {
+                $courseid = reset($rows)->courseid ?? '';
+                $courseidnumber = reset($rows)->courseidnumber ?? '';
+                fputcsv($fp, [$table, $column, $courseid, $courseidnumber]);
+            } else {
+                foreach ($rows as $row) {
+                    // Fields to show.
+                    $courseid = $row->courseid ?? '';
+                    $courseidnumber = $row->courseidnumber ?? '';
+                    $fields = [$table, $column, $courseid, $courseidnumber, $row->id];
+                    // Matched data.
+                    $data = $row->$column;
+
+                    if (!empty($options['regex-match'])) {
+                        // If the search string is a regular expression, show each matching instance.
+
+                        // Replace "/" with "\/", as it is used as delimiters.
+                        $search = str_replace('/', '\\/', $options['regex-match']);
+
+                        // Perform the regular expression search.
+                        preg_match_all( "/" . $search . "/", $data, $matches);
+
+                        if (!empty($matches[0])) {
+                            // Show the result foreach match.
+                            foreach ($matches[0] as $match) {
+                                fputcsv($fp, array_merge($fields, [$match]));
+                            }
                         }
+                    } else {
+                        // Show the result for simple plain text search.
+                        fputcsv($fp, array_merge($fields, [$data]));
                     }
-                } else {
-                    // Show the result for simple plain text search.
-                    fputcsv($fp, array_merge($fields, [$data]));
                 }
             }
         }

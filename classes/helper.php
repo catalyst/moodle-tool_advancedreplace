@@ -207,12 +207,35 @@ class helper {
      * Perform a search on a table and column.
      *
      * @param string $search The text to search for.
+     * @param string $table The table to search.
+     * @param array $columns The columns to search.
      * @param bool $regex Whether to use regular expression search.
-     * @param string $tables A comma separated list of tables and columns to search.
      * @param int $limit The maximum number of results to return.
      * @return array
+     * @throws moodle_exception
      */
-    public static function search(string $search, bool $regex = false, string $tables = '', int $limit = 0): array {
+    public static function search(string $search, string $table, array $columns, bool $regex = false, int $limit = 0): array {
+        // Perform the search for each table and column.
+        $results = [];
+        foreach ($columns as $column) {
+            // Perform the search on this column.
+            if ($regex) {
+                $results = array_merge($results, self::regular_expression_search($search, $table, $column, $limit));
+            } else {
+                $results = array_merge($results, self::plain_text_search($search, $table, $column, $limit));
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Build searching list
+     *
+     * @param string $tables A comma separated list of tables and columns to search.
+     * @return array
+     */
+    public static function build_searching_list(string $tables = ''): array {
         global $DB;
 
         // Build a list of tables and columns to search.
@@ -231,7 +254,7 @@ class helper {
                 }
 
                 // Skip if the column already exists in the list for that table.
-                if (!in_array($columnname, $searchlist[$tablename])) {
+                if (in_array($columnname, $searchlist[$tablename])) {
                     continue;
                 }
             }
@@ -254,20 +277,7 @@ class helper {
                 $searchlist[$table] = [self::ALL_COLUMNS];
             }
         }
-
-        // Perform the search for each table and column.
-        $results = [];
-        foreach ($searchlist as $table => $columns) {
-            foreach ($columns as $column) {
-                // Perform the search on this column.
-                if ($regex) {
-                    $results = array_merge($results, self::regular_expression_search($search, $table, $column, $limit));
-                } else {
-                    $results = array_merge($results, self::plain_text_search($search, $table, $column, $limit));
-                }
-            }
-        }
-
-        return $results;
+        return $searchlist;
     }
+
 }
