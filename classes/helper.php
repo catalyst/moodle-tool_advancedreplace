@@ -224,7 +224,7 @@ class helper {
             $sql = "SELECT $tablealias.id,
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
-                           c.idnumber as courseidnumber
+                           c.shortname as courseshortname
                       FROM {".$table."} t
                  LEFT JOIN {course} c ON c.id = t.$coursefield
                      WHERE $searchsql";
@@ -252,7 +252,7 @@ class helper {
                             $table,
                             $column->name,
                             $record->courseid ?? '',
-                            $record->courseidnumber ?? '',
+                            $record->courseshortname ?? '',
                             $record->id,
                             $record->$columnname,
                         ]);
@@ -302,7 +302,7 @@ class helper {
                 $sql = "SELECT $tablealias.id,
                                $tablealias.$columnname,
                                $tablealias.$coursefield as courseid,
-                               c.idnumber as courseidnumber
+                               c.shortname as courseshortname
                           FROM {".$table."} $tablealias
                      LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                          WHERE $select";
@@ -340,7 +340,7 @@ class helper {
                                     $table,
                                     $column->name,
                                     $record->courseid ?? '',
-                                    $record->courseidnumber ?? '',
+                                    $record->courseshortname ?? '',
                                     $record->id,
                                     $match,
                                 ]);

@@ -104,7 +104,7 @@ $fp = fopen($output, 'w');
 
 // Show header.
 if (!$options['summary']) {
-    fputcsv($fp, ['table', 'column', 'courseid', 'idnumber', 'id', 'match']);
+    fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match']);
 } else {
     fputcsv($fp, ['table', 'column']);
 }
