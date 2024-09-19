@@ -34,9 +34,9 @@ $help =
     "Search text throughout the whole database.
 
 Options:
---search=STRING                  String to search for.
---regex-match=STRING             Use regular expression to match the search string.
---output=FILE                    Output file. If not specified, output to stdout.
+--search=STRING                  Required if --regex-match is not specified. String to search for.
+--regex-match=STRING             Required if --search is not specified. Use regular expression to match the search string.
+--output=FILE                    Required. .Output file. If not specified, output to stdout.
 --tables=tablename:columnname    Tables and columns to search. Separate multiple tables/columns with a comma.
                                  If not specified, search all tables and columns.
                                  If specify table only, search all columns in the table.
@@ -66,6 +66,7 @@ list($options, $unrecognized) = cli_get_params(
         'h' => 'help',
     ]
 );
+core_php_time_limit::raise();
 
 if ($unrecognized) {
     $unrecognized = implode("\n  ", $unrecognized);
@@ -109,7 +110,7 @@ if (!$options['summary']) {
 }
 
 // Perform the search.
-$searchlist = helper::build_searching_list($tables);
+$searchlist = helper::build_searching_list($tables, );
 
 // Output the result for each table.
 foreach ($searchlist as $table => $columns) {

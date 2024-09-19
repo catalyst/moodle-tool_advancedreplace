@@ -16,7 +16,6 @@
 
 namespace tool_advancedreplace;
 
-use core\check\performance\debugging;
 use core\exception\moodle_exception;
 use database_column_info;
 
@@ -37,9 +36,10 @@ class helper {
      *
      * @param string $table The table to search.
      * @param array $searchingcolumns The columns to search.
+     * @param string $searchstring The string to search for.
      * @return array The columns to search.
      */
-    public static function get_columns(string $table, array $searchingcolumns = []): array {
+    public static function get_columns(string $table, array $searchingcolumns = [], string $searchstring = ''): array {
         global $DB;
         $columns = $DB->get_columns($table);
 
@@ -57,6 +57,14 @@ class helper {
             return [];
         }
 
+        // Knowns tables to skip.
+        $skiptables = ['grade_grades_history'];
+
+        // Skip tables that are in the skip list.
+        if (in_array($table, $skiptables)) {
+            return [];
+        }
+
         // Only search the specified columns.
         foreach ($searchingcolumns as $column) {
             if ($column !== self::ALL_COLUMNS) {
@@ -71,6 +79,28 @@ class helper {
             return db_should_replace($table, $col->name);
         });
 
+        // Only search columns that are of type text or char.
+        $columns = array_filter($columns, function($col) {
+            return $col->meta_type === 'X' || $col->meta_type === 'C';
+        });
+
+        // Known columns to skip.
+        $skipcolumns = ['introformat'];
+
+        // Skip columns that are in the skip list.
+        $columns = array_filter($columns, function($col) use ($skipcolumns) {
+            return !in_array($col->name, $skipcolumns);
+        });
+
+        // Exclude columns that has max length less than the search string.
+        if (!empty($searchstring)) {
+            // Strip special characters from the search string.
+            $searchstring = preg_replace('/[^a-zA-Z0-9]/', '', $searchstring);
+            $columns = array_filter($columns, function($col) use ($searchstring) {
+                $col->max_length >= strlen($searchstring);
+            });
+        }
+
         return $columns;
     }
 
@@ -80,7 +110,7 @@ class helper {
      * @param string $tables A comma separated list of tables and columns to search.
      * @return array
      */
-    public static function build_searching_list(string $tables = ''): array {
+    public static function build_searching_list(string $tables = '', string $searchstring = ''): array {
         global $DB;
 
         // Build a list of tables and columns to search.
@@ -126,7 +156,7 @@ class helper {
         // Return the list of tables and actual columns to search.
         $actualsearchlist = [];
         foreach ($searchlist as $table => $columns) {
-            $actualcolumns = self::get_columns($table, $columns);
+            $actualcolumns = self::get_columns($table, $columns, $searchstring);
             if (!empty($actualcolumns)) {
                 $actualsearchlist[$table] = $actualcolumns;
             }
@@ -321,5 +351,4 @@ class helper {
         }
         return $results;
     }
-
 }
