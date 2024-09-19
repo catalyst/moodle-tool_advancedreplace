@@ -105,7 +105,7 @@ $fp = fopen($output, 'w');
 if (!$options['summary']) {
     fputcsv($fp, ['Table', 'Column', 'courseid', 'idnumber', 'ID', 'Match']);
 } else {
-    fputcsv($fp, ['Table', 'Column', 'courseid', 'idnumber']);
+    fputcsv($fp, ['Table', 'Column']);
 }
 
 // Perform the search.
@@ -113,9 +113,6 @@ $searchlist = helper::build_searching_list($tables);
 
 // Output the result for each table.
 foreach ($searchlist as $table => $columns) {
-    // Summary mode.
-    $limit = $options['summary'] ? 1 : 0;
-
     foreach ($columns as $column) {
         // Show the table and column being searched.
         $colname = $column->name;
@@ -123,53 +120,9 @@ foreach ($searchlist as $table => $columns) {
 
         // Perform the search.
         if (!empty($options['regex-match'])) {
-            $result = helper::regular_expression_search($search, $table, $column, $limit);
+            helper::regular_expression_search($search, $table, $column, $options['summary'], $fp);
         } else {
-            $result = helper::plain_text_search($search, $table, $column, $limit);
-        }
-
-        // Notifying the user if no results were found.
-        if (empty($result)) {
-            echo "No results found.\n";
-            continue;
-        } else {
-            echo count($result) . " results found.\n";
-        }
-
-        $rows = reset($result)[$colname];
-        if ($options['summary']) {
-            $courseid = reset($rows)->courseid ?? '';
-            $courseidnumber = reset($rows)->courseidnumber ?? '';
-            fputcsv($fp, [$table, $colname, $courseid, $courseidnumber]);
-        } else {
-            foreach ($rows as $row) {
-                // Fields to show.
-                $courseid = $row->courseid ?? '';
-                $courseidnumber = $row->courseidnumber ?? '';
-                $fields = [$table, $colname, $courseid, $courseidnumber, $row->id];
-                // Matched data.
-                $data = $row->$colname;
-
-                if (!empty($options['regex-match'])) {
-                    // If the search string is a regular expression, show each matching instance.
-
-                    // Replace "/" with "\/", as it is used as delimiters.
-                    $search = str_replace('/', '\\/', $options['regex-match']);
-
-                    // Perform the regular expression search.
-                    preg_match_all( "/" . $search . "/", $data, $matches);
-
-                    if (!empty($matches[0])) {
-                        // Show the result foreach match.
-                        foreach ($matches[0] as $match) {
-                            fputcsv($fp, array_merge($fields, [$match]));
-                        }
-                    }
-                } else {
-                    // Show the result for simple plain text search.
-                    fputcsv($fp, array_merge($fields, [$data]));
-                }
-            }
+            helper::plain_text_search($search, $table, $column, $options['summary'], $fp);
         }
     }
 }

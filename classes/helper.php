@@ -167,11 +167,13 @@ class helper {
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
      * @param int $limit The maximum number of results to return.
+     * @param $stream The resource to write the results to. If null, the results are returned.
      * @return array The results of the search.
      * @throws \dml_exception
      */
     public static function plain_text_search(string $search, string $table,
-                                             database_column_info $column, int $limit = 0): array {
+                                             database_column_info $column, bool $summary = false,
+                                             $stream = null): array {
         global $DB;
 
         $results = [];
@@ -198,9 +200,33 @@ class helper {
         }
 
         if ($column->meta_type === 'X' || $column->meta_type === 'C') {
-            $records = $DB->get_records_sql($sql, [$searchparam], 0, $limit);
-            if ($records) {
-                $results[$table][$column->name] = $records;
+            $limit = $summary ? 1 : 0;
+            $records = $DB->get_recordset_sql($sql, [$searchparam], 0, $limit);
+            if ($records->valid()) {
+                if (!empty($stream)) {
+                    if ($summary) {
+                        fputcsv($stream, [
+                            $table,
+                            $column->name,
+                        ]);
+
+                        // Return empty array to skip the rest of the function.
+                        return $results;
+                    }
+
+                    foreach ($records as $record) {
+                        fputcsv($stream, [
+                            $table,
+                            $column->name,
+                            $record->courseid ?? '',
+                            $record->courseidnumber ?? '',
+                            $record->id,
+                            $record->$columnname,
+                        ]);
+                    }
+                } else {
+                    $results[$table][$column->name] = $records;
+                }
             }
         }
 
@@ -215,10 +241,12 @@ class helper {
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
      * @param int $limit The maximum number of results to return.
+     * @param $stream The resource to write the results to. If null, the results are returned.
      * @return array
      */
     public static function regular_expression_search(string $search, string $table,
-                                                     database_column_info $column, int $limit = 0): array {
+                                                     database_column_info $column, bool $summary = false,
+                                                     $stream = null): array {
         global $DB;
 
         // Check if the database supports regular expression searches.
@@ -249,10 +277,46 @@ class helper {
                 $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $select";
             }
 
-            $records = $DB->get_records_sql($sql, $params, 0, $limit);
+            $limit = $summary ? 1 : 0;
+            $records = $DB->get_recordset_sql($sql, $params, 0, $limit);
 
-            if ($records) {
-                $results[$table][$column->name] = $records;
+            if ($records->valid()) {
+                if (!empty($stream)) {
+                    if ($summary) {
+                        fputcsv($stream, [
+                            $table,
+                            $column->name,
+                        ]);
+
+                        // Return empty array to skip the rest of the function.
+                        return $results;
+                    }
+
+                    foreach ($records as $record) {
+                        $data = $record->$columnname;
+                        // Replace "/" with "\/", as it is used as delimiters.
+                        $pattern = str_replace('/', '\\/', $search);
+
+                        // Perform the regular expression search.
+                        preg_match_all( "/" . $pattern . "/", $data, $matches);
+
+                        if (!empty($matches[0])) {
+                            // Show the result foreach match.
+                            foreach ($matches[0] as $match) {
+                                fputcsv($stream, [
+                                    $table,
+                                    $column->name,
+                                    $record->courseid ?? '',
+                                    $record->courseidnumber ?? '',
+                                    $record->id,
+                                    $match,
+                                ]);
+                            }
+                        }
+                    }
+                } else {
+                    $results[$table][$column->name] = $records;
+                }
             }
         }
         return $results;
