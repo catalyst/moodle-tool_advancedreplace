@@ -18,6 +18,7 @@ namespace tool_advancedreplace;
 
 use core\check\performance\debugging;
 use core\exception\moodle_exception;
+use database_column_info;
 
 /**
  * Helper class to search and replace text throughout the whole database.
@@ -35,10 +36,10 @@ class helper {
      * Get columns to search for in a table.
      *
      * @param string $table The table to search.
-     * @param string $column The column to search.
+     * @param array $searchingcolumns The columns to search.
      * @return array The columns to search.
      */
-    public static function get_columns(string $table, string $column = ''): array {
+    public static function get_columns(string $table, array $searchingcolumns = []): array {
         global $DB;
         $columns = $DB->get_columns($table);
 
@@ -56,177 +57,21 @@ class helper {
             return [];
         }
 
-        if ($column !== self::ALL_COLUMNS) {
-            // Only search the specified column.
-            $columns = array_filter($columns, function($col) use ($column) {
-                return $col->name == $column;
-            });
+        // Only search the specified columns.
+        foreach ($searchingcolumns as $column) {
+            if ($column !== self::ALL_COLUMNS) {
+                $columns = array_filter($columns, function($col) use ($column) {
+                    return $col->name == $column;
+                });
+            }
         }
+
+        // Check if we need to skip some columns.
+        $columns = array_filter($columns, function($col) use ($table) {
+            return db_should_replace($table, $col->name);
+        });
 
         return $columns;
-    }
-
-    /**
-     * Find course field in the table.
-     *
-     * @param string $table The table to search.
-     * @return string The course field name.
-     */
-    public static function find_course_field(string $table): string {
-        global $DB;
-
-        // Potential course field names.
-        $coursefields = ['course', 'courseid'];
-
-        $columns = $DB->get_columns($table);
-        $coursefield = '';
-
-        foreach ($columns as $column) {
-            if (in_array($column->name, $coursefields)) {
-                $coursefield = $column->name;
-                break;
-            }
-        }
-
-        return $coursefield;
-    }
-
-    /**
-     * Perform a plain text search on a table and column.
-     *
-     * @param string $search The text to search for.
-     * @param string $table The table to search.
-     * @param string $column The column to search.
-     * @param int $limit The maximum number of results to return.
-     * @return array The results of the search.
-     */
-    private static function plain_text_search(string $search, string $table,
-                                              string $column = self::ALL_COLUMNS, $limit = 0): array {
-        global $DB;
-
-        $results = [];
-
-        $columns = self::get_columns($table, $column);
-
-        // Potential course field in the table.
-        $coursefield = self::find_course_field($table);
-
-        // Table alias.
-        $tablealias = 't';
-
-        foreach ($columns as $column) {
-            $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
-
-            $searchsql = $DB->sql_like("$tablealias." . $columnname, '?', false);
-            $searchparam = '%'.$DB->sql_like_escape($search).'%';
-
-            if (!empty($coursefield)) {
-                $sql = "SELECT $tablealias.id,
-                               $tablealias.$columnname,
-                               $tablealias.$coursefield as courseid,
-                               c.idnumber as courseidnumber
-                          FROM {".$table."} t
-                     LEFT JOIN {course} c ON c.id = t.$coursefield
-                         WHERE $searchsql";
-            } else {
-                $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
-            }
-
-            if ($column->meta_type === 'X' || $column->meta_type === 'C') {
-                $records = $DB->get_records_sql($sql, [$searchparam], 0, $limit);
-                if ($records) {
-                    $results[$table][$column->name] = $records;
-                }
-            }
-        }
-
-        return $results;
-    }
-
-    /**
-     * Perform a regular expression search on a table and column.
-     * This function is only called if the database supports regular expression searches.
-     *
-     * @param string $search The regular expression to search for.
-     * @param string $table The table to search.
-     * @param string $column The column to search.
-     * @param int $limit The maximum number of results to return.
-     * @return array
-     */
-    private static function regular_expression_search(string $search, string $table,
-                                                      string $column = self::ALL_COLUMNS, int $limit = 0): array {
-        global $DB;
-
-        // Check if the database supports regular expression searches.
-        if (!$DB->sql_regex_supported()) {
-            throw new moodle_exception(get_string('errorregexnotsupported', 'tool_advancedreplace'));
-        }
-
-        $results = [];
-
-        $columns = self::get_columns($table, $column);
-
-        // Find Potential course field in the table.
-        $coursefield = self::find_course_field($table);
-
-        // Table alias.
-        $tablealias = 't';
-
-        foreach ($columns as $column) {
-            $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
-
-            $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
-            $params = ['pattern' => $search];
-
-            if ($column->meta_type === 'X' || $column->meta_type === 'C') {
-
-                if (!empty($coursefield)) {
-                    $sql = "SELECT $tablealias.id,
-                                   $tablealias.$columnname,
-                                   $tablealias.$coursefield as courseid,
-                                   c.idnumber as courseidnumber
-                              FROM {".$table."} $tablealias
-                         LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
-                             WHERE $select";
-                } else {
-                    $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $select";
-                }
-
-                $records = $DB->get_records_sql($sql, $params, 0, $limit);
-
-                if ($records) {
-                    $results[$table][$column->name] = $records;
-                }
-            }
-        }
-
-        return $results;
-    }
-
-    /**
-     * Perform a search on a table and column.
-     *
-     * @param string $search The text to search for.
-     * @param string $table The table to search.
-     * @param array $columns The columns to search.
-     * @param bool $regex Whether to use regular expression search.
-     * @param int $limit The maximum number of results to return.
-     * @return array
-     * @throws moodle_exception
-     */
-    public static function search(string $search, string $table, array $columns, bool $regex = false, int $limit = 0): array {
-        // Perform the search for each table and column.
-        $results = [];
-        foreach ($columns as $column) {
-            // Perform the search on this column.
-            if ($regex) {
-                $results = array_merge($results, self::regular_expression_search($search, $table, $column, $limit));
-            } else {
-                $results = array_merge($results, self::plain_text_search($search, $table, $column, $limit));
-            }
-        }
-
-        return $results;
     }
 
     /**
@@ -277,7 +122,140 @@ class helper {
                 $searchlist[$table] = [self::ALL_COLUMNS];
             }
         }
-        return $searchlist;
+
+        // Return the list of tables and actual columns to search.
+        $actualsearchlist = [];
+        foreach ($searchlist as $table => $columns) {
+            $actualcolumns = self::get_columns($table, $columns);
+            if (!empty($actualcolumns)) {
+                $actualsearchlist[$table] = $actualcolumns;
+            }
+        }
+
+        return $actualsearchlist;
+    }
+
+    /**
+     * Find course field in the table.
+     *
+     * @param string $table The table to search.
+     * @return string The course field name.
+     */
+    public static function find_course_field(string $table): string {
+        global $DB;
+
+        // Potential course field names.
+        $coursefields = ['course', 'courseid'];
+
+        $columns = $DB->get_columns($table);
+        $coursefield = '';
+
+        foreach ($columns as $column) {
+            if (in_array($column->name, $coursefields)) {
+                $coursefield = $column->name;
+                break;
+            }
+        }
+
+        return $coursefield;
+    }
+
+    /**
+     * Perform a plain text search on a table and column.
+     *
+     * @param string $search The text to search for.
+     * @param string $table The table to search.
+     * @param database_column_info $column The column to search.
+     * @param int $limit The maximum number of results to return.
+     * @return array The results of the search.
+     * @throws \dml_exception
+     */
+    public static function plain_text_search(string $search, string $table,
+                                             database_column_info $column, int $limit = 0): array {
+        global $DB;
+
+        $results = [];
+
+        // Potential course field in the table.
+        $coursefield = self::find_course_field($table);
+
+        // Build query.
+        $tablealias = 't';
+        $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
+        $searchsql = $DB->sql_like("$tablealias." . $columnname, '?', false);
+        $searchparam = '%'.$DB->sql_like_escape($search).'%';
+
+        if (!empty($coursefield)) {
+            $sql = "SELECT $tablealias.id,
+                           $tablealias.$columnname,
+                           $tablealias.$coursefield as courseid,
+                           c.idnumber as courseidnumber
+                      FROM {".$table."} t
+                 LEFT JOIN {course} c ON c.id = t.$coursefield
+                     WHERE $searchsql";
+        } else {
+            $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
+        }
+
+        if ($column->meta_type === 'X' || $column->meta_type === 'C') {
+            $records = $DB->get_records_sql($sql, [$searchparam], 0, $limit);
+            if ($records) {
+                $results[$table][$column->name] = $records;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Perform a regular expression search on a table and column.
+     * This function is only called if the database supports regular expression searches.
+     *
+     * @param string $search The regular expression to search for.
+     * @param string $table The table to search.
+     * @param database_column_info $column The column to search.
+     * @param int $limit The maximum number of results to return.
+     * @return array
+     */
+    public static function regular_expression_search(string $search, string $table,
+                                                     database_column_info $column, int $limit = 0): array {
+        global $DB;
+
+        // Check if the database supports regular expression searches.
+        if (!$DB->sql_regex_supported()) {
+            throw new moodle_exception(get_string('errorregexnotsupported', 'tool_advancedreplace'));
+        }
+
+        // Find Potential course field in the table.
+        $coursefield = self::find_course_field($table);
+
+        // Build query.
+        $tablealias = 't';
+        $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
+        $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
+        $params = ['pattern' => $search];
+
+        $results = [];
+        if ($column->meta_type === 'X' || $column->meta_type === 'C') {
+            if (!empty($coursefield)) {
+                $sql = "SELECT $tablealias.id,
+                               $tablealias.$columnname,
+                               $tablealias.$coursefield as courseid,
+                               c.idnumber as courseidnumber
+                          FROM {".$table."} $tablealias
+                     LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
+                         WHERE $select";
+            } else {
+                $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $select";
+            }
+
+            $records = $DB->get_records_sql($sql, $params, 0, $limit);
+
+            if ($records) {
+                $results[$table][$column->name] = $records;
+            }
+        }
+        return $results;
     }
 
 }

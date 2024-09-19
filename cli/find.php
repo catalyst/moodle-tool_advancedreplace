@@ -49,8 +49,8 @@ Options:
 -h, --help                       Print out this help.
 
 Example:
-\$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --search=thelostsoul --summary
-\$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --regex-match=thelostsoul\\d+ --summary
+\$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --search=thelostsoul --output=/tmp/result.csv
+\$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --regex-match=thelostsoul\\d+ --output=/tmp/result.csv
 ";
 
 list($options, $unrecognized) = cli_get_params(
@@ -73,7 +73,10 @@ if ($unrecognized) {
 }
 
 // Ensure that we have required parameters.
-if ($options['help'] || (!is_string($options['search']) && empty($options['regex-match']))) {
+if ($options['help']
+        || (!is_string($options['search']) && empty($options['regex-match']))
+        || empty($options['output'])
+    ) {
     echo $help;
     exit(0);
 }
@@ -90,16 +93,13 @@ try {
         $search = validate_param($options['regex-match'], PARAM_RAW);
     }
     $tables = validate_param($options['tables'], PARAM_RAW);
+    $output = validate_param($options['output'], PARAM_RAW);
 } catch (invalid_parameter_exception $e) {
     cli_error(get_string('invalidcharacter', 'tool_advancedreplace'));
 }
 
 // Start output.
-if (!empty($options['output'])) {
-    $fp = fopen($options['output'], 'w');
-} else {
-    $fp = fopen('php://stdout', 'w');
-}
+$fp = fopen($output, 'w');
 
 // Show header.
 if (!$options['summary']) {
@@ -113,51 +113,61 @@ $searchlist = helper::build_searching_list($tables);
 
 // Output the result for each table.
 foreach ($searchlist as $table => $columns) {
+    // Summary mode.
+    $limit = $options['summary'] ? 1 : 0;
 
-    // Show progress.
-    echo "Searching in table $table: \n";
-    $result = helper::search($search, $table, $columns, !empty($options['regex-match']), $options['summary'] ? 1 : 0);
+    foreach ($columns as $column) {
+        // Show the table and column being searched.
+        $colname = $column->name;
+        echo "Searching in table: $table, column: $colname\n";
 
-    // Notifying the user if no results were found.
-    if (empty($result)) {
-        echo "No results found.\n";
-    }
+        // Perform the search.
+        if (!empty($options['regex-match'])) {
+            $result = helper::regular_expression_search($search, $table, $column, $limit);
+        } else {
+            $result = helper::plain_text_search($search, $table, $column, $limit);
+        }
 
-    // Output the result.
-    foreach ($result as $table => $columns) {
-        foreach ($columns as $column => $rows) {
-            if ($options['summary']) {
-                $courseid = reset($rows)->courseid ?? '';
-                $courseidnumber = reset($rows)->courseidnumber ?? '';
-                fputcsv($fp, [$table, $column, $courseid, $courseidnumber]);
-            } else {
-                foreach ($rows as $row) {
-                    // Fields to show.
-                    $courseid = $row->courseid ?? '';
-                    $courseidnumber = $row->courseidnumber ?? '';
-                    $fields = [$table, $column, $courseid, $courseidnumber, $row->id];
-                    // Matched data.
-                    $data = $row->$column;
+        // Notifying the user if no results were found.
+        if (empty($result)) {
+            echo "No results found.\n";
+            continue;
+        } else {
+            echo count($result) . " results found.\n";
+        }
 
-                    if (!empty($options['regex-match'])) {
-                        // If the search string is a regular expression, show each matching instance.
+        $rows = reset($result)[$colname];
+        if ($options['summary']) {
+            $courseid = reset($rows)->courseid ?? '';
+            $courseidnumber = reset($rows)->courseidnumber ?? '';
+            fputcsv($fp, [$table, $colname, $courseid, $courseidnumber]);
+        } else {
+            foreach ($rows as $row) {
+                // Fields to show.
+                $courseid = $row->courseid ?? '';
+                $courseidnumber = $row->courseidnumber ?? '';
+                $fields = [$table, $colname, $courseid, $courseidnumber, $row->id];
+                // Matched data.
+                $data = $row->$colname;
 
-                        // Replace "/" with "\/", as it is used as delimiters.
-                        $search = str_replace('/', '\\/', $options['regex-match']);
+                if (!empty($options['regex-match'])) {
+                    // If the search string is a regular expression, show each matching instance.
 
-                        // Perform the regular expression search.
-                        preg_match_all( "/" . $search . "/", $data, $matches);
+                    // Replace "/" with "\/", as it is used as delimiters.
+                    $search = str_replace('/', '\\/', $options['regex-match']);
 
-                        if (!empty($matches[0])) {
-                            // Show the result foreach match.
-                            foreach ($matches[0] as $match) {
-                                fputcsv($fp, array_merge($fields, [$match]));
-                            }
+                    // Perform the regular expression search.
+                    preg_match_all( "/" . $search . "/", $data, $matches);
+
+                    if (!empty($matches[0])) {
+                        // Show the result foreach match.
+                        foreach ($matches[0] as $match) {
+                            fputcsv($fp, array_merge($fields, [$match]));
                         }
-                    } else {
-                        // Show the result for simple plain text search.
-                        fputcsv($fp, array_merge($fields, [$data]));
                     }
+                } else {
+                    // Show the result for simple plain text search.
+                    fputcsv($fp, array_merge($fields, [$data]));
                 }
             }
         }
