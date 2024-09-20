@@ -116,8 +116,6 @@ $fp = fopen($output, 'w');
 // Show header.
 if (!$options['summary']) {
     fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match']);
-} else {
-    fputcsv($fp, ['table', 'column']);
 }
 
 // Perform the search.
@@ -146,5 +144,20 @@ foreach ($searchlist as $table => $columns) {
 }
 
 $progress->update_full(100, "Finished searching into $output");
+
 fclose($fp);
+
+if ($summary) {
+    // Read the content of the output file.
+    $filecontent = file_get_contents($output);
+    // Replace new line with comma.
+    $filecontent = str_replace("\n", ',', $filecontent);
+    // Remove the last comma.
+    $filecontent = substr($filecontent, 0, -1);
+    // Add a new line at the end.
+    $filecontent .= "\n";
+    // Write the content back to the file.
+    file_put_contents($output, $filecontent);
+}
+
 exit(0);

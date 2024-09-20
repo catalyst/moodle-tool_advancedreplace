@@ -330,8 +330,7 @@ class helper {
                 if (!empty($stream)) {
                     if ($summary) {
                         fputcsv($stream, [
-                            $table,
-                            $column->name,
+                            "$table:$column->name",
                         ]);
 
                         // Return empty array to skip the rest of the function.
