@@ -36,7 +36,7 @@ $help =
 Options:
 --search=STRING                  Required if --regex-match is not specified. String to search for.
 --regex-match=STRING             Required if --search is not specified. Use regular expression to match the search string.
---output=FILE                    Required. .Output file. If not specified, output to stdout.
+--output=FILE                    Required output file. If not specified, output to stdout.
 --tables=tablename:columnname    Tables and columns to search. Separate multiple tables/columns with a comma.
                                  If not specified, search all tables and columns.
                                  If specify table only, search all columns in the table.
@@ -44,6 +44,12 @@ Options:
                                     --tables=user:username,user:email
                                     --tables=user,assign_submission:submission
                                     --tables=user,assign_submission
+--skip-tables=tablenname         Tables to skip. Separate multiple tables with a comma.
+                                 Example:
+                                    --skip-tables=user,config
+--skip-columns=columnname        Columns to skip. Separate multiple columns with a comma.
+                                 Example:
+                                    --skip-columns=firstname,lastname
 --summary                        Summary mode, only shows column/table where the text is found.
                                  If not specified, run in detail mode, which shows the full text where the search string is found.
 -h, --help                       Print out this help.
@@ -55,12 +61,14 @@ Example:
 
 list($options, $unrecognized) = cli_get_params(
     [
-        'search'  => null,
-        'regex-match'  => null,
-        'output'  => null,
-        'tables' => '',
-        'summary' => false,
-        'help'    => false,
+        'search'        => null,
+        'regex-match'   => null,
+        'output'        => null,
+        'tables'        => '',
+        'skip-tables'   => '',
+        'skip-columns'  => '',
+        'summary'       => false,
+        'help'          => false,
     ],
     [
         'h' => 'help',
@@ -95,8 +103,11 @@ try {
     }
     $tables = validate_param($options['tables'], PARAM_RAW);
     $output = validate_param($options['output'], PARAM_RAW);
+    $skiptables = validate_param($options['skip-tables'], PARAM_RAW);
+    $skipcolumns = validate_param($options['skip-columns'], PARAM_RAW);
+    $summary = validate_param($options['summary'], PARAM_RAW);
 } catch (invalid_parameter_exception $e) {
-    cli_error(get_string('invalidcharacter', 'tool_advancedreplace'));
+    cli_error(get_string('errorinvalidparam', 'tool_advancedreplace'));
 }
 
 // Start output.
@@ -110,7 +121,7 @@ if (!$options['summary']) {
 }
 
 // Perform the search.
-[$count,$searchlist] = helper::build_searching_list($tables, );
+[$count, $searchlist] = helper::build_searching_list($tables, $skiptables, $skipcolumns);
 
 $progress = new progress_bar();
 $progress->create();
@@ -124,9 +135,9 @@ foreach ($searchlist as $table => $columns) {
 
         // Perform the search.
         if (!empty($options['regex-match'])) {
-            helper::regular_expression_search($search, $table, $column, $options['summary'], $fp);
+            helper::regular_expression_search($search, $table, $column, $summary, $fp);
         } else {
-            helper::plain_text_search($search, $table, $column, $options['summary'], $fp);
+            helper::plain_text_search($search, $table, $column, $summary, $fp);
         }
 
         $columncount++;

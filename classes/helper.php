@@ -36,14 +36,25 @@ class helper {
      *
      * @param string $table The table to search.
      * @param array $searchingcolumns The columns to search.
+     * @param array $skiptables The tables to skip.
+     * @param array $skipcolumns The columns to skip.
      * @param string $searchstring The string to search for.
      * @return array The columns to search.
      */
-    public static function get_columns(string $table, array $searchingcolumns = [], string $searchstring = ''): array {
+    public static function get_columns(string $table, array $searchingcolumns = [],
+                                       array $skiptables = [], array $skipcolumns = [], string $searchstring = ''): array {
         global $DB;
+
+        // Skip tables that are in the skip list.
+        if (in_array($table, $skiptables)) {
+            return [];
+        }
+
+        // Get the columns in the table.
         $columns = $DB->get_columns($table);
 
         // Make sure the table has id field.
+        // There could be some custom tables that do not have id field.
         $hasid = false;
         foreach ($columns as $col) {
             if ($col->name == 'id') {
@@ -57,13 +68,10 @@ class helper {
             return [];
         }
 
-        // Knowns tables to skip.
-        $skiptables = ['grade_grades_history'];
-
-        // Skip tables that are in the skip list.
-        if (in_array($table, $skiptables)) {
-            return [];
-        }
+        // Skip columns that are in the skip list.
+        $columns = array_filter($columns, function($col) use ($skipcolumns) {
+            return !in_array($col->name, $skipcolumns);
+        });
 
         // Only search the specified columns.
         foreach ($searchingcolumns as $column) {
@@ -84,12 +92,9 @@ class helper {
             return $col->meta_type === 'X' || $col->meta_type === 'C';
         });
 
-        // Known columns to skip.
-        $skipcolumns = ['introformat'];
-
-        // Skip columns that are in the skip list.
-        $columns = array_filter($columns, function($col) use ($skipcolumns) {
-            return !in_array($col->name, $skipcolumns);
+        // Skip columns which has 'format' in the name.
+        $columns = array_filter($columns, function($col) {
+            return strpos($col->name, 'format') === false;
         });
 
         // Exclude columns that has max length less than the search string.
@@ -108,9 +113,14 @@ class helper {
      * Build searching list
      *
      * @param string $tables A comma separated list of tables and columns to search.
+     * @param string $skiptables A comma separated list of tables to skip.
+     * @param string $skipcolumns A comma separated list of columns to skip.
+     * @param string $searchstring The string to search for, used to exclude columns having max length less than this.
+     *
      * @return array
      */
-    public static function build_searching_list(string $tables = '', string $searchstring = ''): array {
+    public static function build_searching_list(string $tables = '', string $skiptables = '', string $skipcolumns = '',
+                                                string $searchstring = ''): array {
         global $DB;
 
         // Build a list of tables and columns to search.
@@ -153,11 +163,15 @@ class helper {
             }
         }
 
+        // Skip tables and columns.
+        $skiptables = explode(',', $skiptables);
+        $skipcolumns = explode(',', $skipcolumns);
+
         // Return the list of tables and actual columns to search.
         $count = 0;
         $actualsearchlist = [];
         foreach ($searchlist as $table => $columns) {
-            $actualcolumns = self::get_columns($table, $columns, $searchstring);
+            $actualcolumns = self::get_columns($table, $columns, $skiptables, $skipcolumns, $searchstring);
             sort($actualcolumns);
             $count += sizeof($actualcolumns);
             if (!empty($actualcolumns)) {
@@ -199,10 +213,9 @@ class helper {
      * @param string $search The text to search for.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
-     * @param int $limit The maximum number of results to return.
-     * @param $stream The resource to write the results to. If null, the results are returned.
+     * @param bool $summary Whether to return a summary of the search.
+     * @param null $stream The resource to write the results to. If null, the results are returned.
      * @return array The results of the search.
-     * @throws \dml_exception
      */
     public static function plain_text_search(string $search, string $table,
                                              database_column_info $column, bool $summary = false,
@@ -273,8 +286,8 @@ class helper {
      * @param string $search The regular expression to search for.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
-     * @param int $limit The maximum number of results to return.
-     * @param $stream The resource to write the results to. If null, the results are returned.
+     * @param bool $summary Whether to return a summary of the search.
+     * @param null $stream The resource to write the results to. If null, the results are returned.
      * @return array
      */
     public static function regular_expression_search(string $search, string $table,
