@@ -22,8 +22,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['errorinvalidparam'] = 'Invalid parameter.';
 $string['errorregexnotsupported'] = 'Regular expression searches are not supported by this database.';
 $string['errorsearchmethod'] = 'Please choose one of the search methods: plain text or regular expression.';
-$string['errorinvalidparam'] = 'Invalid parameter.';
 $string['pluginname'] = 'Advanced DB search and replace';
 $string['privacy:metadata'] = 'The plugin does not store any personal data.';

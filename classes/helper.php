@@ -16,6 +16,10 @@
 
 namespace tool_advancedreplace;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/adminlib.php');
+
 use core\exception\moodle_exception;
 use database_column_info;
 
@@ -41,7 +45,7 @@ class helper {
      * @param string $searchstring The string to search for.
      * @return array The columns to search.
      */
-    public static function get_columns(string $table, array $searchingcolumns = [],
+    private static function get_columns(string $table, array $searchingcolumns = [],
                                        array $skiptables = [], array $skipcolumns = [], string $searchstring = ''): array {
         global $DB;
 
@@ -117,7 +121,7 @@ class helper {
      * @param string $skipcolumns A comma separated list of columns to skip.
      * @param string $searchstring The string to search for, used to exclude columns having max length less than this.
      *
-     * @return array
+     * @return array the number of columns to search and the actual columns to search.
      */
     public static function build_searching_list(string $tables = '', string $skiptables = '', string $skipcolumns = '',
                                                 string $searchstring = ''): array {
@@ -173,7 +177,7 @@ class helper {
         foreach ($searchlist as $table => $columns) {
             $actualcolumns = self::get_columns($table, $columns, $skiptables, $skipcolumns, $searchstring);
             sort($actualcolumns);
-            $count += sizeof($actualcolumns);
+            $count += count($actualcolumns);
             if (!empty($actualcolumns)) {
                 $actualsearchlist[$table] = $actualcolumns;
             }
@@ -188,7 +192,7 @@ class helper {
      * @param string $table The table to search.
      * @return string The course field name.
      */
-    public static function find_course_field(string $table): string {
+    private static function find_course_field(string $table): string {
         global $DB;
 
         // Potential course field names.
