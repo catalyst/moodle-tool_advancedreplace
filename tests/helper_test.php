@@ -235,4 +235,35 @@ final class helper_test extends \advanced_testcase {
         $assignintro = $result['assign']['intro'];
         $this->assertMatchesRegularExpression($searchstring, $assignintro->current()->intro);
     }
+
+    /**
+     * Test for replace_text_in_a_record
+     *
+     * @covers \tool_advancedreplace\helper::replace_text_in_a_record
+     */
+    public function test_replace_text_in_a_record(): void {
+        $this->resetAfterTest();
+
+        global $DB;
+
+        // Create a course.
+        $course = $this->getDataGenerator()->create_course();
+        // Create a page content.
+        $page = $this->getDataGenerator()->create_module('page', (object)[
+            'course' => $course,
+            'content' => 'This is a page content with a link to https://example.com.au/1234',
+            'contentformat' => FORMAT_HTML,
+        ]);
+
+        // Replace the text in the page content.
+        helper::replace_text_in_a_record('page', 'content', 'https://example.com.au/1234',
+            'https://example.com.au/5678', $page->id);
+
+        // Get the updated page content.
+        $updatedpage = $DB->get_record('page', ['id' => $page->id]);
+
+        // Check if the text is replaced.
+        $this->assertStringContainsString('https://example.com.au/5678', $updatedpage->content);
+    }
+
 }
