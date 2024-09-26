@@ -28,23 +28,41 @@ The plugin does not store any personal data.
    git clone git@github.com:catalyst/moodle-tool_advancedreplace.git admin/tool/advancedreplace
 
 ## Examples
-- Find all occurrences of "http://example.com/" followed by any number of digits on tables:
+Find all occurrences of "http://example.com/" followed by any number of digits on tables:
 
-    `php admin/tool/advancedreplace/cli/find.php --regex-match="http://example.com/\d+" --output=/tmp/result.csv`
-- Find all occurrences of "http://example.com/" on a table:
+```sh
+cd admin/tool/advancedreplace/cli/
+php find.php --regex-match="http://example.com/\d+" --output=result.csv
+```
 
-    `php admin/tool/advancedreplace/cli/find.php --regex-match="http://example.com/\d+" --tables=page --output=/tmp/result.csv`
+Find all occurrences of "http://example.com/" in a table:
 
-- Find all occurrences of "http://example.com/" on multiple tables:
+```sh
+php find.php --regex-match="http://example.com/\d+" --tables=page --output=result.csv
+```
 
-    `php admin/tool/advancedreplace/cli/find.php --regex-match="http://example.com/\d+" --tables=page,forum --output=/tmp/result.csv`
+Find all occurrences of "http://example.com/" in multiple tables:
 
-- Find all occurrences of "http://example.com/" on different tables and columns:
+```sh
+php find.php --regex-match="http://example.com/\d+" --tables=page,forum --output=result.csv
+```
 
-    `php admin/tool/advancedreplace/cli/find.php --regex-match="http://example.com/\d+" --tables=page:content,forum:message --output=/tmp/result.csv`
-- Find all occurrences of "http://example.com/" on all tables except the ones specified:
+Find all occurrences of "http://example.com/" in different tables and columns:
 
-    `php admin/tool/advancedreplace/cli/find.php --regex-match="http://example.com/\d+" --skip-tables=page,forum --output=/tmp/result.csv`
-- Find all occurrences of "http://example.com/" on all columns except the ones specified:
+```sh
+php find.php --regex-match="http://example.com/\d+" --tables=page:content,forum:message --output=result.csv
+```
 
-    `php admin/tool/advancedreplace/cli/find.php --regex-match="http://example.com/\d+" --tables=page --skip-columns=intro,display --output=/tmp/result.csv`
+Find all occurrences of "http://example.com/" in all tables except the ones specified:
+
+```sh
+php find.php --regex-match="http://example.com/\d+" --skip-tables=page,forum --output=result.csv
+```
+
+Find all occurrences of "http://example.com/" in all columns except the ones specified:
+
+```sh
+php find.php --regex-match="http://example.com/\d+" --tables=page --skip-columns=intro,display --output=result.csv
+```
+
+  
