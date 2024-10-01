@@ -21,6 +21,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/adminlib.php');
 
 use core\exception\moodle_exception;
+use core_text;
 use database_column_info;
 
 /**
@@ -272,6 +273,7 @@ class helper {
                             $record->courseshortname ?? '',
                             $record->id,
                             $record->$columnname,
+                            '',
                         ]);
                     }
                 } else {
@@ -360,6 +362,7 @@ class helper {
                                     $record->courseshortname ?? '',
                                     $record->id,
                                     $match,
+                                    '',
                                 ]);
                             }
                         }
@@ -370,5 +373,92 @@ class helper {
             }
         }
         return $results;
+    }
+
+    /**
+     * Get column info from column name.
+     *
+     * @param string $table The table name.
+     * @param string $columnname The column name.
+     *
+     * @return database_column_info|null The column info.
+     */
+    private static function get_column_info(string $table, string $columnname): ?database_column_info {
+        global $DB;
+
+        $columns = $DB->get_columns($table);
+        foreach ($columns as $col) {
+            if ($col->name == $columnname) {
+                return $col;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Replace all text in a table and column.
+     *
+     * @param string $table The table to search.
+     * @param string $columnname The column to search.
+     * @param string $search The text to search for.
+     * @param string $replace The text to replace with.
+     * @param int $id The id of the record to restrict the search.
+     */
+    public static function replace_text_in_a_record(string $table, string $columnname,
+                                                    string $search, string $replace, int $id) {
+
+        $column = self::get_column_info($table, $columnname);
+        self::replace_all_text($table, $column, $search, $replace, ' AND id = ?', [$id]);
+    }
+
+    /**
+     * A clone of the core function replace_all_text.
+     * We have optional id parameter to restrict the search.
+     *
+     * @since Moodle 2.6.1
+     * @param string $table name of the table
+     * @param database_column_info $column
+     * @param string $search text to search for
+     * @param string $replace text to replace with
+     * @param string $wheresql additional where clause
+     * @param array $whereparams parameters for the where clause
+     */
+    private static function replace_all_text($table, database_column_info $column, string $search, string $replace,
+                                            string $wheresql = '', array $whereparams = []) {
+        global $DB;
+
+        if (!$DB->replace_all_text_supported()) {
+            throw new moodle_exception(get_string('errorreplacetextnotsupported', 'tool_advancedreplace'));
+        }
+
+        // Enclose the column name by the proper quotes if it's a reserved word.
+        $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
+
+        $searchsql = $DB->sql_like($columnname, '?');
+        $searchparam = '%'.$DB->sql_like_escape($search).'%';
+
+        // Additional where clause.
+        $searchsql .= $wheresql;
+        $params = array_merge([$search, $replace, $searchparam], $whereparams);
+
+        switch ($column->meta_type) {
+            case 'C':
+                if (core_text::strlen($search) < core_text::strlen($replace)) {
+                    $colsize = $column->max_length;
+                    $sql = "UPDATE {".$table."}
+                               SET $columnname = " . $DB->sql_substr("REPLACE(" . $columnname . ", ?, ?)", 1, $colsize) . "
+                             WHERE $searchsql";
+                    break;
+                }
+                // Otherwise, do not break and use the same query as in the 'X' case.
+            case 'X':
+                $sql = "UPDATE {".$table."}
+                           SET $columnname = REPLACE($columnname, ?, ?)
+                         WHERE $searchsql";
+                break;
+            default:
+                throw new moodle_exception(get_string('errorcolumntypenotsupported', 'tool_advancedreplace'));
+        }
+        $DB->execute($sql, $params);
     }
 }

@@ -22,8 +22,13 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['errorcolumntypenotsupported'] = 'Column type is not supported.';
+$string['errorfilenotfound'] = 'File not found.';
+$string['errorinvalidfile'] = 'The file is not valid.';
 $string['errorinvalidparam'] = 'Invalid parameter.';
+$string['errormissingfields'] = 'The following fields are missing: {$a}';
 $string['errorregexnotsupported'] = 'Regular expression searches are not supported by this database.';
+$string['errorreplacetextnotsupported'] = 'Replace all text is not supported by this database.';
 $string['errorsearchmethod'] = 'Please choose one of the search methods: plain text or regular expression.';
 $string['pluginname'] = 'Advanced DB search and replace';
 $string['privacy:metadata'] = 'The plugin does not store any personal data.';
