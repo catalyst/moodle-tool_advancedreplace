@@ -15,9 +15,9 @@ The plugin does not store any personal data.
 
 ## Branches
 
-| Moodle version    | Branch             | PHP       |
-|-------------------|--------------------|-----------|
-| Moodle 4.1+       | `main`             | 7.4+      |
+| Moodle version    | Branch              | PHP       |
+|-------------------|---------------------|-----------|
+| Moodle 4.1+       | `MOODLE_401_STABLE` | 7.4+      |
 
 ## Installation
 
@@ -65,4 +65,4 @@ Find all occurrences of "http://example.com/" in all columns except the ones spe
 php find.php --regex-match="http://example.com/\d+" --tables=page --skip-columns=intro,display --output=result.csv
 ```
 
-  
+
