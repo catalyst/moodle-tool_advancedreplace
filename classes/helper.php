@@ -121,11 +121,12 @@ class helper {
      * @param string $skiptables A comma separated list of tables to skip.
      * @param string $skipcolumns A comma separated list of columns to skip.
      * @param string $searchstring The string to search for, used to exclude columns having max length less than this.
+     * @param array $tablerowcounts Estimated table row counts, used to estimate the total number of data entires.
      *
-     * @return array the number of columns to search and the actual columns to search.
+     * @return array the estimated total number of data entries to search and the actual columns to search.
      */
     public static function build_searching_list(string $tables = '', string $skiptables = '', string $skipcolumns = '',
-                                                string $searchstring = ''): array {
+                                                string $searchstring = '', array $tablerowcounts = []): array {
         global $DB;
 
         // Build a list of tables and columns to search.
@@ -178,13 +179,50 @@ class helper {
         foreach ($searchlist as $table => $columns) {
             $actualcolumns = self::get_columns($table, $columns, $skiptables, $skipcolumns, $searchstring);
             sort($actualcolumns);
-            $count += count($actualcolumns);
+            $count += count($actualcolumns) * ($tablerowcounts[$table] ?? 1);
             if (!empty($actualcolumns)) {
                 $actualsearchlist[$table] = $actualcolumns;
             }
         }
         ksort($actualsearchlist);
         return [$count, $actualsearchlist];
+    }
+
+    /**
+     * Estimate row counts for all tables
+     *
+     * @return array of table row counts with table name as key.
+     */
+    public static function estimate_table_rows(): array {
+        global $CFG, $DB;
+
+        if ($DB->get_dbfamily() === 'mysql') {
+            $sql = "SELECT table_name, table_rows
+                      FROM information_schema.tables
+                     WHERE table_schema = DATABASE()
+                       AND table_type = 'BASE TABLE'
+                       AND table_name LIKE :prefix";
+        } else if ($DB->get_dbfamily() === 'postgres') {
+            $sql = "SELECT relname AS table_name, GREATEST(reltuples::BIGINT, 0) AS table_rows
+                      FROM pg_class
+                     WHERE relkind = 'r'
+                       AND relnamespace IN (SELECT oid FROM pg_namespace WHERE nspname = current_schema())
+                       AND relname LIKE :prefix";
+        } else {
+            // Other databases are not currently supported, so use columns as estimate instead of rows.
+            return [];
+        }
+
+        $params = ['prefix' => $CFG->prefix . '%'];
+        $records = $DB->get_records_sql($sql, $params);
+
+        $tablerows = [];
+        foreach ($records as $record) {
+            $tablename = str_replace($CFG->prefix, '', $record->table_name);
+            $tablerows[$tablename] = $record->table_rows;
+        }
+
+        return $tablerows;
     }
 
     /**

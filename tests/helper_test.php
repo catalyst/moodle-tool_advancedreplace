@@ -266,4 +266,23 @@ final class helper_test extends \advanced_testcase {
         $this->assertStringContainsString('https://example.com.au/5678', $updatedpage->content);
     }
 
+    /**
+     * Test for estimate_table_rows
+     *
+     * @covers \tool_advancedreplace\helper::estimate_table_rows
+     */
+    public function test_estimate_table_rows(): void {
+        global $DB;
+
+        $supporteddb = ['mysql', 'postgres'];
+
+        if (in_array($DB->get_dbfamily(), $supporteddb)) {
+            // Confirm the number of estimates match the number of tables.
+            $estimates = helper::estimate_table_rows();
+            $this->assertEquals(count($DB->get_tables()), count($estimates));
+        } else {
+            $this->assertEmpty(helper::estimate_table_rows());
+        }
+    }
+
 }

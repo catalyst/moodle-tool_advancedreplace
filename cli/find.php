@@ -121,17 +121,19 @@ if (!$options['summary']) {
 }
 
 // Perform the search.
-[$count, $searchlist] = helper::build_searching_list($tables, $skiptables, $skipcolumns);
+$rowcounts = helper::estimate_table_rows();
+[$totalrows, $searchlist] = helper::build_searching_list($tables, $skiptables, $skipcolumns, '', $rowcounts);
 
 $progress = new progress_bar();
 $progress->create();
 
 // Output the result for each table.
-$columncount = 0;
+$rowcount = 0;
 foreach ($searchlist as $table => $columns) {
     foreach ($columns as $column) {
         // Show the table and column being searched.
         $colname = $column->name;
+        $progress->update($rowcount, $totalrows, "Searching in $table:$colname");
 
         // Perform the search.
         if (!empty($options['regex-match'])) {
@@ -140,8 +142,7 @@ foreach ($searchlist as $table => $columns) {
             helper::plain_text_search($search, $table, $column, $summary, $fp);
         }
 
-        $columncount++;
-        $progress->update_full(100 * $columncount / $count, "Searching in $table:$colname");
+        $rowcount += $rowcounts[$table] ?? 1;
     }
 }
 
