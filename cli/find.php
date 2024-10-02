@@ -30,6 +30,16 @@ require(__DIR__.'/../../../../config.php');
 require_once($CFG->libdir.'/clilib.php');
 require_once($CFG->libdir.'/adminlib.php');
 
+$urltypes = [
+    'course' => function($record) {return (new moodle_url('/course/view.php', array('id' => $record->id)))->out();},
+    'page' => function($record) {return (new moodle_url('/mod/page/view.php', array('id' => $record->id)))->out();},
+    ];
+$urlmappings = [
+    'course:fullname' => 'course',
+    'course:shortname' => 'course',
+    'course:summary' => 'course',
+];
+
 $help =
     "Search text throughout the whole database.
 
@@ -115,7 +125,7 @@ $fp = fopen($output, 'w');
 
 // Show header.
 if (!$options['summary']) {
-    fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace']);
+    fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace','url']);
 } else {
     fputcsv($fp, ['table', 'column']);
 }
@@ -133,11 +143,19 @@ foreach ($searchlist as $table => $columns) {
         // Show the table and column being searched.
         $colname = $column->name;
 
+        $urlfunction = null;
+        if (! empty($urlmappings["{$table}:{$colname}"])) {
+            $type = $urlmappings["{$table}:{$colname}"];
+            if (! empty($urltypes[$type]) ) {
+                $urlfunction = $urltypes[$type];
+            }
+        } 
+
         // Perform the search.
         if (!empty($options['regex-match'])) {
-            helper::regular_expression_search($search, $table, $column, $summary, $fp);
+            helper::regular_expression_search($search, $table, $column, $summary, $fp, $urlfunction);
         } else {
-            helper::plain_text_search($search, $table, $column, $summary, $fp);
+            helper::plain_text_search($search, $table, $column, $summary, $fp, $urlfunction);
         }
 
         $columncount++;

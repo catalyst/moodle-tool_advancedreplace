@@ -196,6 +196,10 @@ class helper {
     private static function find_course_field(string $table): string {
         global $DB;
 
+        if ($table == 'course') {
+            return 'id';
+        }
+
         // Potential course field names.
         $coursefields = ['course', 'courseid'];
 
@@ -243,7 +247,7 @@ class helper {
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
                            c.shortname as courseshortname
-                      FROM {".$table."} t
+                      FROM {".$table."} $tablealias
                  LEFT JOIN {course} c ON c.id = t.$coursefield
                      WHERE $searchsql";
         } else {
@@ -298,7 +302,7 @@ class helper {
      */
     public static function regular_expression_search(string $search, string $table,
                                                      database_column_info $column, bool $summary = false,
-                                                     $stream = null): array {
+                                                     $stream = null, $urlfunction=null): array {
         global $DB;
 
         // Check if the database supports regular expression searches.
@@ -314,7 +318,7 @@ class helper {
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
         $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
         $params = ['pattern' => $search];
-
+        $urlstring = '';
         $results = [];
         if ($column->meta_type === 'X' || $column->meta_type === 'C') {
             if (!empty($coursefield)) {
@@ -346,6 +350,9 @@ class helper {
 
                     foreach ($records as $record) {
                         $data = $record->$columnname;
+                        if (!empty($urlfunction)) {
+                            $urlstring = $urlfunction($record);
+                        }
                         // Replace "/" with "\/", as it is used as delimiters.
                         $pattern = str_replace('/', '\\/', $search);
 
@@ -363,6 +370,7 @@ class helper {
                                     $record->id,
                                     $match,
                                     '',
+                                    $urlstring,
                                 ]);
                             }
                         }
