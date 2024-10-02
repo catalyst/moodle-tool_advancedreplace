@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details.
+ * Plugin administration pages are defined here.
  *
  * @package    tool_advancedreplace
  * @copyright  2024 Catalyst IT Australia Pty Ltd
@@ -24,9 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2024100400; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->release   = 2024100400;
-$plugin->requires  = 2020110900; // Requires this Moodle version.
-$plugin->component = 'tool_advancedreplace';
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->supported = [401, 405];
+if ($hassiteconfig) {
+    $ADMIN->add(
+        'tools',
+        new admin_externalpage(
+            'tool_advancedreplace_search',
+            get_string('searchpagename', 'tool_advancedreplace'),
+            new moodle_url('/admin/tool/advancedreplace/search.php'),
+        )
+    );
+}
