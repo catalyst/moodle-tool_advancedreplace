@@ -434,6 +434,109 @@ class helper {
     }
 
     /**
+     * Searches the DB using a persistent record.
+     *
+     * @param \tool_advancedreplace\search $record
+     * @param string $output path
+     * @return void
+     */
+    public static function search_db(\tool_advancedreplace\search $record, string $output = ''): void {
+        $id = $record->get('id');
+        $search = $record->get('search');
+        $regex = $record->get('regex');
+        $tables = $record->get('tables');
+        $skiptables = $record->get('skiptables');
+        $skipcolumns = $record->get('skipcolumns');
+        $summary = $record->get('summary');
+        $origin = $record->get('origin');
+
+        $filename = \tool_advancedreplace\search::get_filename($record->to_record());
+        // Create temp output directory.
+        if (!$output) {
+            $dir = make_request_directory();
+            $output = $dir . '/' . $filename;
+        }
+
+        // Start output.
+        $fp = fopen($output, 'w');
+
+        // Show header.
+        if (!$summary) {
+            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace']);
+        } else {
+            fputcsv($fp, ['table', 'column']);
+        }
+
+        // Perform the search.
+        $record->set('timestart', time());
+        $rowcounts = self::estimate_table_rows();
+        [$totalrows, $searchlist] = self::build_searching_list($tables, $skiptables, $skipcolumns, '', $rowcounts);
+
+        // Don't update progress directly for web requests as they are processed as adhoc tasks.
+        if ($origin !== 'web') {
+            $progress = new \progress_bar();
+            $progress->create();
+        }
+
+        // Output the result for each table.
+        $rowcount = 0;
+        $update = new \StdClass();
+        $update->time = time();
+        $update->percent = 0;
+        foreach ($searchlist as $table => $columns) {
+            foreach ($columns as $column) {
+                // Show the table and column being searched.
+                if (isset($progress)) {
+                    $colname = $column->name;
+                    $progress->update($rowcount, $totalrows, "Searching in $table:$colname");
+                }
+
+                // Perform the search.
+                if (!empty($regex)) {
+                    self::regular_expression_search($search, $table, $column, $summary, $fp);
+                } else {
+                    self::plain_text_search($search, $table, $column, $summary, $fp);
+                }
+
+                $rowcount += $rowcounts[$table] ?? 1;
+
+                // Only update record progress every 10 seconds or 5 percent.
+                $time = time();
+                $percent = round(100 * $rowcount / $totalrows, 2);
+                if ($time > $update->time + 10 || $percent > $update->percent + 5) {
+                    $record->set('progress', $percent);
+                    $record->save();
+                    $update->time = $time;
+                    $update->percent = 0;
+                }
+            }
+        }
+
+        // Mark as finished.
+        if (isset($progress)) {
+            $progress->update_full(100, "Finished searching into $output");
+        }
+
+        $record->set('timeend', time());
+        $record->set('progress', 100);
+        $record->save();
+
+        fclose($fp);
+
+        // Save as pluginfile.
+        $fs = get_file_storage();
+        $fileinfo = [
+            'contextid' => \context_system::instance()->id,
+            'component' => 'tool_advancedreplace',
+            'filearea'  => 'search',
+            'itemid'    => $id,
+            'filepath'  => '/',
+            'filename'  => $filename,
+        ];
+        $fs->create_file_from_pathname($fileinfo, $output);
+    }
+
+    /**
      * Replace all text in a table and column.
      *
      * @param string $table The table to search.

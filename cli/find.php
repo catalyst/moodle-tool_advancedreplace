@@ -96,56 +96,29 @@ if (!empty($options['regex-match']) && !empty($options['search'])) {
 }
 
 try {
+    $data = new stdClass;
     if (!empty($options['search'])) {
-        $search = validate_param($options['search'], PARAM_RAW);
+        $data->search = validate_param($options['search'], PARAM_RAW);
     } else {
-        $search = validate_param($options['regex-match'], PARAM_RAW);
+        $data->search = validate_param($options['regex-match'], PARAM_RAW);
+        $data->regex = true;
     }
-    $tables = validate_param($options['tables'], PARAM_RAW);
+    $data->tables = validate_param($options['tables'], PARAM_RAW);
+    $data->skiptables = validate_param($options['skip-tables'], PARAM_RAW);
+    $data->skipcolumns = validate_param($options['skip-columns'], PARAM_RAW);
+    $data->summary = validate_param($options['summary'], PARAM_RAW);
     $output = validate_param($options['output'], PARAM_RAW);
-    $skiptables = validate_param($options['skip-tables'], PARAM_RAW);
-    $skipcolumns = validate_param($options['skip-columns'], PARAM_RAW);
-    $summary = validate_param($options['summary'], PARAM_RAW);
 } catch (invalid_parameter_exception $e) {
     cli_error(get_string('errorinvalidparam', 'tool_advancedreplace'));
 }
 
-// Start output.
-$fp = fopen($output, 'w');
+// Set other fields.
+$data->userid = $USER->id;
+$data->name = ucfirst(pathinfo($output, PATHINFO_FILENAME));
+$data->origin = 'cli';
 
-// Show header.
-if (!$options['summary']) {
-    fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace']);
-} else {
-    fputcsv($fp, ['table', 'column']);
-}
-
-// Perform the search.
-$rowcounts = helper::estimate_table_rows();
-[$totalrows, $searchlist] = helper::build_searching_list($tables, $skiptables, $skipcolumns, '', $rowcounts);
-
-$progress = new progress_bar();
-$progress->create();
-
-// Output the result for each table.
-$rowcount = 0;
-foreach ($searchlist as $table => $columns) {
-    foreach ($columns as $column) {
-        // Show the table and column being searched.
-        $colname = $column->name;
-        $progress->update($rowcount, $totalrows, "Searching in $table:$colname");
-
-        // Perform the search.
-        if (!empty($options['regex-match'])) {
-            helper::regular_expression_search($search, $table, $column, $summary, $fp);
-        } else {
-            helper::plain_text_search($search, $table, $column, $summary, $fp);
-        }
-
-        $rowcount += $rowcounts[$table] ?? 1;
-    }
-}
-
-$progress->update_full(100, "Finished searching into $output");
-fclose($fp);
+// Run search.
+$search = new \tool_advancedreplace\search(0, $data);
+$search->create();
+helper::search_db($search, $output);
 exit(0);

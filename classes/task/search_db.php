@@ -14,19 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace tool_advancedreplace\task;
+
 /**
- * Version details.
+ * Ad-hoc task to update objects table. Used for async upgrade.
  *
  * @package    tool_advancedreplace
  * @copyright  2024 Catalyst IT Australia Pty Ltd
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class search_db extends \core\task\adhoc_task {
 
-defined('MOODLE_INTERNAL') || die();
+    /**
+     * Action of task.
+     */
+    public function execute() {
+        // Get the custom data.
+        $data = $this->get_custom_data();
+        if (empty($data->searchid)) {
+            return;
+        }
 
-$plugin->version   = 2024100400; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->release   = 2024100400;
-$plugin->requires  = 2020110900; // Requires this Moodle version.
-$plugin->component = 'tool_advancedreplace';
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->supported = [401, 405];
+        $record = new \tool_advancedreplace\search($data->searchid);
+        if (empty($record)) {
+            return;
+        }
+
+        \tool_advancedreplace\helper::search_db($record);
+    }
+}
