@@ -19,6 +19,7 @@ namespace tool_advancedreplace;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->libdir.'/filelib.php');
 
 use core\exception\moodle_exception;
 use core_text;
@@ -694,5 +695,87 @@ class helper {
                 throw new moodle_exception(get_string('errorcolumntypenotsupported', 'tool_advancedreplace'));
         }
         $DB->execute($sql, $params);
+    }
+
+    /**
+     * Search the file, looking for the regular expression.
+     * Report the matches into the stream.
+     *
+     * @param array $filerecord  a row from mdl_files table, indicating the file to be searched
+     * @param string $pattern a regular expression to search for
+     * @param resource $stream  the open csv file to receive the matches
+     */
+    public static function search_file($filerecord, $pattern, $stream) {
+        static $fs = null;
+        if (empty($fs)) {
+            $fs = get_file_storage();
+        }
+        $file = $fs->get_file(
+            $filerecord->contextid, 
+            $filerecord->component, 
+            $filerecord->filearea, 
+            $filerecord->itemid, 
+            $filerecord->filepath, 
+            $filerecord->filename
+        );
+       
+        if (preg_match_all($pattern, $file->get_content(), $matches, PREG_OFFSET_CAPTURE)) {
+            foreach($matches[0] as $match) {
+                fputcsv($stream, [
+                    $filerecord->contextid, 
+                    $filerecord->component, 
+                    $filerecord->filearea, 
+                    $filerecord->itemid, 
+                    $filerecord->filepath, 
+                    $filerecord->filename,
+                    $match[1],
+                    $match[0],
+                    '',
+                    ]);
+            }
+        } 
+    }
+
+    public static function make_whereclause_for_components($components, $skipcomponents, $skipareas){
+        $params = [];
+        $paramnumber = 0;
+        $whereclause = '';
+
+        if (empty($components)) {
+            $whereclause .= '(1=1) ';
+        } else {
+            $whereclause .= '( (0=1) ';
+            foreach (explode(',', $components) as $specification) {
+                [$component, $area] = explode(':', $specification);
+                $paramnumber ++;
+                $whereclause .= " OR ( component = :param{$paramnumber} ";
+                $params["param{$paramnumber}"] = $component;
+                if (! empty($area)) {
+                    $paramnumber ++;
+                    $whereclause .= " AND filearea = :param{$paramnumber} ";
+                    $params["param{$paramnumber}"] = $area;
+                }
+                $whereclause .= ') ' ;
+            }
+            $whereclause .= ' )';
+        }
+
+        if ( ! empty($skipcomponents)) {
+            foreach( explode(',', $skipcomponents) as $component) {
+                $paramnumber ++;
+                $params["param{$paramnumber}"] = $component;
+                $whereclause .= " AND component != :param{$paramnumber} ";
+            }
+        }
+
+        if ( ! empty($skipareas)) {
+            foreach( explode(',', $skipareas) as $area) {
+                $paramnumber ++;
+                $params["param{$paramnumber}"] = $area;
+                $whereclause .= " AND filearea != :param{$paramnumber} ";
+            }
+        }
+
+        return [$whereclause, $params];
     }
 }
