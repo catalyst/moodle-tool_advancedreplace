@@ -387,6 +387,7 @@ class helper {
                         return $results;
                     }
 
+                    $count = 0;
                     foreach ($records as $record) {
                         $data = $record->$columnname;
                         // Replace "/" with "\/", as it is used as delimiters.
@@ -395,7 +396,6 @@ class helper {
                         // Perform the regular expression search.
                         preg_match_all( "/" . $pattern . "/", $data, $matches);
 
-                        $count = 0;
                         if (!empty($matches[0])) {
                             // Show the result foreach match.
                             foreach ($matches[0] as $match) {
@@ -411,8 +411,8 @@ class helper {
                                 $count++;
                             }
                         }
-                        $results['count'] = $count;
                     }
+                    $results['count'] = $count;
                 } else {
                     $results[$table][$column->name] = $records;
                 }
