@@ -34,6 +34,7 @@ $string['excludedtables'] = 'Several tables are not updated as part of the text 
 $string['field_actions'] = 'Actions';
 $string['field_duration'] = 'Duration';
 $string['field_id'] = 'ID';
+$string['field_matches'] = 'Found';
 $string['field_name'] = 'Name';
 $string['field_options'] = 'Options';
 $string['field_output'] = 'Output';

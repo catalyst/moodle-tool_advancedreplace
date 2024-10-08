@@ -298,11 +298,13 @@ class helper {
                             $table,
                             $column->name,
                         ]);
+                        $results['count'] = 1;
 
                         // Return empty array to skip the rest of the function.
                         return $results;
                     }
 
+                    $count = 0;
                     foreach ($records as $record) {
                         fputcsv($stream, [
                             $table,
@@ -313,7 +315,9 @@ class helper {
                             $record->$columnname,
                             '',
                         ]);
+                        $count++;
                     }
+                    $results['count'] = $count;
                 } else {
                     $results[$table][$column->name] = $records;
                 }
@@ -377,6 +381,7 @@ class helper {
                             $table,
                             $column->name,
                         ]);
+                        $results['count'] = 1;
 
                         // Return empty array to skip the rest of the function.
                         return $results;
@@ -390,6 +395,7 @@ class helper {
                         // Perform the regular expression search.
                         preg_match_all( "/" . $pattern . "/", $data, $matches);
 
+                        $count = 0;
                         if (!empty($matches[0])) {
                             // Show the result foreach match.
                             foreach ($matches[0] as $match) {
@@ -402,8 +408,10 @@ class helper {
                                     $match,
                                     '',
                                 ]);
+                                $count++;
                             }
                         }
+                        $results['count'] = $count;
                     }
                 } else {
                     $results[$table][$column->name] = $records;
@@ -480,6 +488,7 @@ class helper {
 
         // Output the result for each table.
         $rowcount = 0;
+        $matches = 0;
         $update = new \StdClass();
         $update->time = time();
         $update->percent = 0;
@@ -493,11 +502,11 @@ class helper {
 
                 // Perform the search.
                 if (!empty($regex)) {
-                    self::regular_expression_search($search, $table, $column, $summary, $fp);
+                    $results = self::regular_expression_search($search, $table, $column, $summary, $fp);
                 } else {
-                    self::plain_text_search($search, $table, $column, $summary, $fp);
+                    $results = self::plain_text_search($search, $table, $column, $summary, $fp);
                 }
-
+                $matches += $results['count'] ?? 0;
                 $rowcount += $rowcounts[$table] ?? 1;
 
                 // Only update record progress every 10 seconds or 5 percent.
@@ -505,6 +514,7 @@ class helper {
                 $percent = round(100 * $rowcount / $totalrows, 2);
                 if ($time > $update->time + 10 || $percent > $update->percent + 5) {
                     $record->set('progress', $percent);
+                    $record->set('matches', $matches);
                     $record->save();
                     $update->time = $time;
                     $update->percent = 0;
@@ -519,21 +529,24 @@ class helper {
 
         $record->set('timeend', time());
         $record->set('progress', 100);
+        $record->set('matches', $matches);
         $record->save();
 
         fclose($fp);
 
         // Save as pluginfile.
-        $fs = get_file_storage();
-        $fileinfo = [
-            'contextid' => \context_system::instance()->id,
-            'component' => 'tool_advancedreplace',
-            'filearea'  => 'search',
-            'itemid'    => $id,
-            'filepath'  => '/',
-            'filename'  => $filename,
-        ];
-        $fs->create_file_from_pathname($fileinfo, $output);
+        if (!empty($matches)) {
+            $fs = get_file_storage();
+            $fileinfo = [
+                'contextid' => \context_system::instance()->id,
+                'component' => 'tool_advancedreplace',
+                'filearea'  => 'search',
+                'itemid'    => $id,
+                'filepath'  => '/',
+                'filename'  => $filename,
+            ];
+            $fs->create_file_from_pathname($fileinfo, $output);
+        }
     }
 
     /**
