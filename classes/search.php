@@ -94,7 +94,7 @@ class search extends \core\persistent {
 
     /**
      * Gets the file name of the search output
-     * @param \stdClass record
+     * @param \stdClass $record
      * @return string filename
      */
     public static function get_filename(\stdClass $record): string {

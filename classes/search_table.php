@@ -34,6 +34,7 @@ class search_table extends \table_sql {
         'timestart',
         'progress',
         'duration',
+        'matches',
         'actions',
     ];
 
@@ -167,24 +168,53 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_actions($row): string {
+        $actions = '';
+        $actions .= self::get_download_link($row);
+        return $actions;
+    }
+
+    /**
+     * Returns a download link for a pluginfile.
+     *
+     * @param object $row object
+     * @return string html for download link, or an empty string.
+     */
+    protected function get_download_link($row): string {
         global $OUTPUT;
 
-        $actions = '';
-
-        if (!empty($row->timeend)) {
-            $filename = \tool_advancedreplace\search::get_filename($row);
-            $downloadurl = \moodle_url::make_pluginfile_url(
-                \context_system::instance()->id,
-                'tool_advancedreplace',
-                'search',
-                $row->id,
-                '/',
-                $filename
-            )->out();
-            $downloadicon = $OUTPUT->render(new \pix_icon('t/download', get_string('download')));
-            $actions .= \html_writer::link($downloadurl, $downloadicon, ['class' => 'action-icon']);
+        // Make sure search is finished.
+        if (empty($row->timeend)) {
+            return '';
         }
 
-        return $actions;
+        $filename = \tool_advancedreplace\search::get_filename($row);
+        $fs = get_file_storage();
+        $file = $fs->get_file(
+            \context_system::instance()->id,
+            'tool_advancedreplace',
+            'search',
+            $row->id,
+            '/',
+            $filename
+        );
+
+        if (empty($file)) {
+            return '';
+        }
+
+        $fileurl = \moodle_url::make_pluginfile_url(
+            $file->get_contextid(),
+            $file->get_component(),
+            $file->get_filearea(),
+            $file->get_itemid(),
+            $file->get_filepath(),
+            $file->get_filename()
+        )->out();
+
+        $filesize = display_size($file->get_filesize());
+        $alt = get_string('download') . " $filename ($filesize)";
+
+        $downloadicon = $OUTPUT->render(new \pix_icon('t/download', $alt));
+        return \html_writer::link($fileurl, $downloadicon, ['class' => 'action-icon']);
     }
 }
