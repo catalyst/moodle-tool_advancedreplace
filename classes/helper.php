@@ -234,6 +234,10 @@ class helper {
     private static function find_course_field(string $table): string {
         global $DB;
 
+        if ($table == 'course') {
+            return 'id';
+        }
+
         // Potential course field names.
         $coursefields = ['course', 'courseid'];
 
@@ -266,6 +270,8 @@ class helper {
         global $DB;
 
         $results = [];
+        $linkstring = '';
+        $linkfunction = self::find_link_function($table, $column->name);
 
         // Potential course field in the table.
         $coursefield = self::find_course_field($table);
@@ -281,8 +287,8 @@ class helper {
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
                            c.shortname as courseshortname
-                      FROM {".$table."} t
-                 LEFT JOIN {course} c ON c.id = t.$coursefield
+                      FROM {".$table."} $tablealias
+                 LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                      WHERE $searchsql";
         } else {
             $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
@@ -306,6 +312,9 @@ class helper {
 
                     $count = 0;
                     foreach ($records as $record) {
+                        if ( ! empty($linkfunction)) {
+                            $linkstring = $linkfunction($record);
+                        }
                         fputcsv($stream, [
                             $table,
                             $column->name,
@@ -314,6 +323,7 @@ class helper {
                             $record->id,
                             $record->$columnname,
                             '',
+                            $linkstring,
                         ]);
                         $count++;
                     }
@@ -357,6 +367,8 @@ class helper {
         $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
         $params = ['pattern' => $search];
 
+        $linkstring = '';
+        $linkfunction = self::find_link_function($table, $column->name);
         $results = [];
         if ($column->meta_type === 'X' || $column->meta_type === 'C') {
             if (!empty($coursefield)) {
@@ -389,6 +401,9 @@ class helper {
 
                     foreach ($records as $record) {
                         $data = $record->$columnname;
+                        if ( ! empty($linkfunction)) {
+                            $linkstring = $linkfunction($record);
+                        }
                         // Replace "/" with "\/", as it is used as delimiters.
                         $pattern = str_replace('/', '\\/', $search);
 
@@ -407,6 +422,7 @@ class helper {
                                     $record->id,
                                     $match,
                                     '',
+                                    $linkstring,
                                 ]);
                                 $count++;
                             }
@@ -470,7 +486,7 @@ class helper {
 
         // Show header.
         if (!$summary) {
-            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace']);
+            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link']);
         } else {
             fputcsv($fp, ['table', 'column']);
         }
@@ -547,6 +563,65 @@ class helper {
             ];
             $fs->create_file_from_pathname($fileinfo, $output);
         }
+    }
+
+    /**
+     * Return a closure that can be used to create the link from the record.
+     *
+     * @param string $table   The name of the table being searched.
+     * @param string $column  The name of the column being searched.
+     * @return \Closure    $urlstring = closure($record).
+     */
+    public static function find_link_function($table, $column) {
+        global $DB;
+
+        $linktypes = [
+            'course' => function($record) {
+                $url = new \moodle_url('/course/view.php', ['id' => $record->id]);
+                return $url->out();
+            },
+        ];
+
+        static $linkmappings = [
+            'course:fullname' => 'course',
+            'course:shortname' => 'course',
+            'course:summary' => 'course',
+        ];
+
+        static $modulefunctions = null;
+        if ($modulefunctions === null) {
+            // First time: establish an index of module_name => module_id.
+            $modules = $DB->get_records('modules');
+            $modulefunctions = [];
+            foreach ($modules as $module) {
+                $modulefunctions[$module->name] = function($record) use ($module) {
+                    global $DB;
+                    $coursemodule = $DB->get_record('course_modules', ['module' => $module->id, 'instance' => $record->id], 'id');
+                    if (empty($coursemodule)) {
+                        return null;
+                    } else {
+                        $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id]);
+                        return $url->out();
+                    }
+                };
+            }
+        }
+
+        // Consider links from hand-coded table:column combinations.
+        if (! empty($linkmappings["{$table}:{$column}"])) {
+            $type = $linkmappings["{$table}:{$column}"];
+            if (! empty($linktypes[$type]) ) {
+                $linkfunction = $linktypes[$type];
+                return $linkfunction;
+            }
+        }
+
+        // Consider links based on the table name being a module.
+        if (isset($modulefunctions[$table])) {
+            return $modulefunctions[$table];
+        }
+
+        return null;
     }
 
     /**
