@@ -16,6 +16,8 @@
 
 namespace tool_advancedreplace;
 
+use stdClass;
+
 /**
  * Table to display search history.
  *
@@ -28,13 +30,15 @@ class search_table extends \table_sql {
     /** Columns to be displayed. */
     const COLUMNS = [
         'id',
-        'search',
         'name',
+        'userid',
+        'search',
         'options',
         'timestart',
-        'progress',
         'duration',
+        'progress',
         'matches',
+        'output',
         'actions',
     ];
 
@@ -51,6 +55,8 @@ class search_table extends \table_sql {
     /** Columns to be displayed, but not sorted. */
     const NOSORT_COLUMNS = [
         'options',
+        'matches',
+        'output',
         'actions',
     ];
 
@@ -72,6 +78,7 @@ class search_table extends \table_sql {
 
         $this->define_columns($columns);
         $this->column_class('progress', 'text-right');
+        $this->column_class('matches', 'text-right');
         $this->define_headers($headers);
     }
 
@@ -91,51 +98,84 @@ class search_table extends \table_sql {
      * @return false|\type|void
      */
     public function setup() {
+        $table = search::TABLE;
+        $duration = 'CASE WHEN timeend - timestart > 0 THEN timeend - timestart ELSE 0 END AS duration';
         $this->set_sql(
-            '*',
-            '{' . search::TABLE .'}',
+            "*, $duration",
+            "{{$table}}",
             '1=1',
         );
         $retvalue = parent::setup();
-        $this->set_attribute('class', $this->attributes['class'] . ' table-sm');
+        $this->set_attribute('class', $this->attributes['class'] . ' table-sm mb-3');
         return $retvalue;
+    }
+
+    /**
+     * Displays the name of the search.
+     *
+     * @param stdClass $record
+     * @return string
+     */
+    public function col_name(stdClass $record): string {
+        // Add a generic name fallback.
+        if (empty($record->name)) {
+            return get_string('search') . ' ' . $record->id;
+        }
+
+        return $record->name;
+    }
+
+    /**
+     * Displays the full name of the user.
+     *
+     * @param stdClass $record
+     * @return string
+     */
+    public function col_userid(stdClass $record): string {
+        if (empty($record->userid)) {
+            return '';
+        }
+
+        $user = \core_user::get_user($record->userid);
+        $display = !empty($user) ? fullname($user) : $record->userid;
+        return \html_writer::link(new \moodle_url('/user/profile.php', ['id' => $record->userid]), $display);
     }
 
     /**
      * Generate content for progress column.
      *
-     * @param object $row object
+     * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function col_progress($row): string {
-        return get_string('percents', 'moodle', round($row->progress, 2));
+    public function col_progress($record): string {
+        return get_string('percents', 'moodle', round($record->progress, 2));
     }
 
     /**
      * Generate content for timestart column.
      *
-     * @param object $row object
+     * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function col_timestart($row): string {
-        if (empty($row->timestart)) {
+    public function col_timestart($record): string {
+        if (empty($record->timestart)) {
             return '';
         }
         $format = get_string('strftimedatetime', 'langconfig');
-        return userdate($row->timestart, $format);
+        return userdate($record->timestart, $format);
     }
 
     /**
      * Generate content for duration column.
      *
-     * @param object $row object
+     * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function col_duration($row): string {
-        if (empty($row->timeend)) {
+    public function col_duration($record): string {
+        if (empty($record->timeend)) {
             return '';
         }
-        $duration = $row->timeend - $row->timestart;
+        $duration = $record->duration;
         if (empty($duration)) {
             // The format_time function returns 'now' when the difference is exactly 0.
             return '0 ' . get_string('secs', 'moodle');
@@ -146,59 +186,57 @@ class search_table extends \table_sql {
     /**
      * Generate content for options column.
      *
-     * @param object $row object
+     * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function col_options($row): string {
+    public function col_options($record): string {
         $options = [];
         $bool = ['regex', 'summary'];
         foreach (self::OPTIONS as $option) {
-            if (!empty($row->$option)) {
+            if (!empty($record->$option)) {
                 $name = get_string('field_' . $option, 'tool_advancedreplace');
-                $options[] = in_array($option, $bool) ? $name : $name . ': ' . $row->$option;
+                $options[] = in_array($option, $bool) ? $name : $name . ': ' . $record->$option;
             }
         }
         return implode(',' . PHP_EOL, $options);
     }
 
     /**
-     * Generate content for actions column.
+     * Generate content for output column.
      *
-     * @param object $row object
+     * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function col_actions($row): string {
+    public function col_output($record): string {
+        $output = '';
+        $output .= self::get_download_link($record);
+        return $output;
+    }
+
+    /**
+     * Generate content for actions column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function col_actions($record): string {
         $actions = '';
-        $actions .= self::get_download_link($row);
+        $actions .= self::get_copy_link($record);
+        $actions .= self::get_delete_link($record);
         return $actions;
     }
 
     /**
      * Returns a download link for a pluginfile.
      *
-     * @param object $row object
+     * @param stdClass $record
      * @return string html for download link, or an empty string.
      */
-    protected function get_download_link($row): string {
+    protected function get_download_link($record): string {
         global $OUTPUT;
 
-        // Make sure search is finished.
-        if (empty($row->timeend)) {
-            return '';
-        }
-
-        $filename = \tool_advancedreplace\search::get_filename($row);
-        $fs = get_file_storage();
-        $file = $fs->get_file(
-            \context_system::instance()->id,
-            'tool_advancedreplace',
-            'search',
-            $row->id,
-            '/',
-            $filename
-        );
-
-        if (empty($file)) {
+        // Make sure search is finished and we have a file.
+        if (empty($record->timeend) || !$file = \tool_advancedreplace\search::get_file($record)) {
             return '';
         }
 
@@ -211,10 +249,50 @@ class search_table extends \table_sql {
             $file->get_filename()
         )->out();
 
+        $filename = $file->get_filename();
         $filesize = display_size($file->get_filesize());
-        $alt = get_string('download') . " $filename ($filesize)";
 
-        $downloadicon = $OUTPUT->render(new \pix_icon('t/download', $alt));
-        return \html_writer::link($fileurl, $downloadicon, ['class' => 'action-icon']);
+        $download = \html_writer::link($fileurl, $filename);
+        return "$download ($filesize)";
+    }
+
+    /**
+     * Returns a delete link for a search.
+     *
+     * @param stdClass $record
+     * @return string html for delete link, or an empty string.
+     */
+    protected function get_delete_link($record): string {
+        global $OUTPUT;
+
+        // TODO: Allow deletion of failed tasks.
+        if (empty($record->timeend)) {
+            return '';
+        }
+
+        $url = new \moodle_url('/admin/tool/advancedreplace/search.php', ['delete' => $record->id, 'sesskey' => sesskey()]);
+        $action = new \confirm_action(get_string('confirm_delete', 'tool_advancedreplace'));
+        $deleteicon = $OUTPUT->render(new \pix_icon('t/delete', get_string('delete')));
+
+        $actionlink = new \action_link($url, $deleteicon, $action);
+        return $OUTPUT->render($actionlink);
+    }
+
+
+    /**
+     * Returns a copy link for a search.
+     *
+     * @param stdClass $record
+     * @return string html for copy link, or an empty string.
+     */
+    protected function get_copy_link($record): string {
+        global $OUTPUT;
+
+        if (empty($record->timeend)) {
+            return '';
+        }
+        $url = new \moodle_url('/admin/tool/advancedreplace/search.php', ['copy' => $record->id]);
+        $copyicon = $OUTPUT->render(new \pix_icon('t/copy', get_string('copyoptions', 'tool_advancedreplace')));
+        return \html_writer::link($url, $copyicon, ['class' => 'action-icon']);
     }
 }

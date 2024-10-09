@@ -28,6 +28,18 @@ class search extends \core\persistent {
     /** The name of the database table. */
     public const TABLE = 'tool_advancedreplace_search';
 
+    /** Fields to copy when copying a record. */
+    public const COPY_COLUMNS = [
+        'name',
+        'search',
+        'regex',
+        'prematch',
+        'tables',
+        'skiptables',
+        'skipcolumns',
+        'summary',
+    ];
+
     /**
      * Return the definition of the properties of this model.
      *
@@ -90,6 +102,72 @@ class search extends \core\persistent {
                 'default' => 0,
             ],
         ];
+    }
+
+    /**
+     * Hook to execute before a delete.
+     *
+     * @return void
+     */
+    protected function before_delete(): void {
+        // TODO: Clean up any remaining adhoc tasks.
+    }
+
+    /**
+     * Hook to execute after a delete
+     *
+     * @param bool $result Whether or not the delete was successful.
+     * @return void
+     */
+    protected function after_delete($result): void {
+        if ($result) {
+            // Delete output pluginfiles.
+            if ($file = $this->get_file(self::to_record())) {
+                $file->delete();
+            }
+        }
+    }
+
+    /**
+     * Queues a search task to be run
+     * @return bool true if the task was queued
+     */
+    public function queue_task(): bool {
+        $adhoctask = new \tool_advancedreplace\task\search_db();
+        $adhoctask->set_custom_data([
+            'searchid' => $this->get('id'),
+        ]);
+        return \core\task\manager::queue_adhoc_task($adhoctask);
+    }
+
+    /**
+     * Returns a clean copy of data that can be used to rerun a search.
+     * @return \stdClass
+     */
+    public function copy_data(): \stdClass {
+        $data = new \stdClass();
+        foreach (self::COPY_COLUMNS as $column) {
+            $data->$column = $this->get($column);
+        }
+        return $data;
+    }
+
+    /**
+     * Gets the file for the search output
+     * @param \stdClass $record
+     * @return bool|\stored_file
+     */
+    public static function get_file(\stdClass $record) {
+        $filename = self::get_filename($record);
+        $fs = get_file_storage();
+        return $fs->get_file(
+            \context_system::instance()->id,
+            'tool_advancedreplace',
+            'search',
+            $record->id,
+            '/',
+            $filename
+        );
     }
 
     /**
