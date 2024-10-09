@@ -31,6 +31,20 @@ $PAGE->set_url($url);
 admin_externalpage_setup('tool_advancedreplace_search');
 
 $id = optional_param('id', null, PARAM_INT);
+$delete = optional_param('delete', null, PARAM_INT);
+$copy = optional_param('copy', null, PARAM_INT);
+
+if (isset($copy)) {
+    $id = 0;
+}
+
+if (isset($delete)) {
+    require_sesskey();
+    $search = new \tool_advancedreplace\search($delete);
+    $search->delete();
+    \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));;
+    redirect($url);
+}
 
 if (isset($id)) {
     $newurl = new moodle_url('/admin/tool/advancedreplace/search.php');
@@ -47,27 +61,30 @@ if (isset($id)) {
         if (empty($data->id)) {
             $search = new \tool_advancedreplace\search(0, $data);
             $search->create();
-
-            $searchid = $search->get('id');
-            $adhoctask = new \tool_advancedreplace\task\search_db();
-            $adhoctask->set_custom_data([
-                'searchid' => $searchid,
-            ]);
-            \core\task\manager::queue_adhoc_task($adhoctask);
+            $search->queue_task();
 
             \core\notification::success(get_string('searchqueued', 'tool_advancedreplace'));;
             redirect($url);
         } else {
-            // Should not be here. TODO: Better handling.
+            // This should never modify an existing search..
             redirect($url);
         }
     } else {
+        // Display form.
         echo $OUTPUT->header();
         echo $OUTPUT->heading(get_string('searchpageheader', 'tool_advancedreplace'));
+        if (isset($copy)) {
+            // Load the original data without setting the persistent.
+            $search = new \tool_advancedreplace\search($copy);
+            $data = $search->copy_data();
+            $form->set_data($data);
+            echo $OUTPUT->notification(get_string('searchcopy', 'tool_advancedreplace'), core\output\notification::NOTIFY_SUCCESS);
+        }
         echo $OUTPUT->notification(get_string('excludedtables', 'tool_advancedreplace'), core\output\notification::NOTIFY_INFO);
         $form->display();
     }
 } else {
+    // Display search table.
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('searchpageheader', 'tool_advancedreplace'));
 
@@ -79,8 +96,8 @@ if (isset($id)) {
 
     $url->param('id', 0);
     $newurl = new \moodle_url($url, ['id' => 0]);
-    $newbtton = new \single_button($newurl, get_string('newsearch', 'tool_advancedreplace'), 'GET');
-    echo $OUTPUT->render($newbtton);
+    $newbutton = new \single_button($newurl, get_string('newsearch', 'tool_advancedreplace'), 'GET');
+    echo $OUTPUT->render($newbutton);
 }
 
 echo $OUTPUT->footer();
