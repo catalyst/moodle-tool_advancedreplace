@@ -36,6 +36,11 @@ class helper {
     /** @var string ALL_COLUMNS Flag to indicate we search all columns in a table **/
     const ALL_COLUMNS = 'all columns';
 
+    /** @var array SKIP_TABLES Additional tables that should always be skipped. Most are already handled by core. **/
+    const SKIP_TABLES = [
+        search::TABLE,
+    ];
+
     /**
      * Get columns to search for in a table.
      *
@@ -170,7 +175,7 @@ class helper {
         }
 
         // Skip tables and columns.
-        $skiptables = explode(',', $skiptables);
+        $skiptables = array_merge(self::SKIP_TABLES, explode(',', $skiptables));
         $skipcolumns = explode(',', $skipcolumns);
 
         // Return the list of tables and actual columns to search.
