@@ -109,6 +109,10 @@ try {
     $components = validate_param($options['components'], PARAM_RAW);
     $skipcomponents = validate_param($options['skip-components'], PARAM_RAW);
     $skipareas = validate_param($options['skip-areas'], PARAM_RAW);
+    $mimetypes = validate_param($options['mimetypes'], PARAM_RAW);
+    $skipmimetypes = validate_param($options['skip-mimetypes'], PARAM_RAW);
+    $filenames = validate_param($options['filenames'], PARAM_RAW);
+    $skipfilenames = validate_param($options['skip-filenames'], PARAM_RAW);
 
 } catch (invalid_parameter_exception $e) {
     cli_error(get_string('errorinvalidparam', 'tool_advancedreplace'));

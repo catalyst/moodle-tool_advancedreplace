@@ -706,6 +706,7 @@ class helper {
      * @param resource $stream  the open csv file to receive the matches
      */
     public static function search_file($filerecord, $pattern, $stream) {
+        print "searching file: {$filerecord->filename}\n";
         static $fs = null;
         if (empty($fs)) {
             $fs = get_file_storage();
@@ -736,18 +737,9 @@ class helper {
         } 
     }
 
-    public static function make_where_phrase($column, $values) {
-        if ( ! empty($values)) {
-            $wherephrase .= '( (0=1) ';
-            foreach (explode(',', $values) as $value) {
-                $paramnumber ++;
-                $wherephrase .= " OR ( $column = :param{$paramnumber} ) ";
-                $params["param{$paramnumber}"] = $value;
-            }
-            $wherephrase .= ' )';
-        }
-    }
-    public static function make_whereclause_for_components($components, $skipcomponents, $skipareas){
+    public static function make_whereclause_for_components($components, $skipcomponents, $skipareas,
+    $mimetypes, $skipmimetypes, $filenames, $skipfilenames){
+        print "mimetypes is $mimetypes \n";
         $params = [];
         $paramnumber = 0;
         $whereclause = '';
@@ -771,7 +763,15 @@ class helper {
             $whereclause .= ' )';
         }
 
-        $whereclause .= ' AND ' . make_where_phrase('mimetype', $mimetypes);
+        if ( ! empty($mimetypes)) {
+            $whereclause .= ' AND ( (0=1) ';
+            foreach (explode(',', $mimetypes) as $value) {
+                $paramnumber ++;
+                $whereclause .= " OR ( mimetype = :param{$paramnumber} ) ";
+                $params["param{$paramnumber}"] = $value;
+            }
+            $whereclause .= ' )';
+        }
 
         // Todo: filenames with LIKE
 // Todo: skip mimetypes
