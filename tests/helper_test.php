@@ -285,4 +285,71 @@ final class helper_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Test a module-based link function.
+     *
+     * @param string $table - name of the table - same as module name.
+     * @param int $id = the id of the module table. This will be the instance of coursemodule table.
+     * @return void
+     */
+    public function find_module($table, $id): void {
+        global $DB;
+        $linkfunction = helper::find_link_function($table, 'dummy');
+        $this->assertInstanceOf(\Closure::class, $linkfunction);
+
+        // The URL returned should contain the id from the course_modules table.
+        $sql = "SELECT c.id from {course_modules} c JOIN {modules} m ON m.id = c.module
+            WHERE c.instance = :instance AND m.name=:table
+            LIMIT 1";
+        $params = ['instance' => $id, 'table' => $table];
+        $coursemodule = $DB->get_record_sql($sql, $params);
+        $record = (object)['id' => $id];
+        $linkstring = $linkfunction($record);
+        $this->assertEquals("https://www.example.com/moodle/mod/{$table}/view.php?id={$coursemodule->id}", $linkstring);
+    }
+
+    /**
+     * Test for find_link_function
+     *
+     *
+     * @covers \tool_advancedreplace\helper::find_link_function
+     */
+    public function test_find_link_function(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        // An unrecognised table should return a null.
+        $linkfunction = helper::find_link_function('failure', 'dummy');
+        $this->assertNull($linkfunction);
+
+        $course = $this->getDataGenerator()->create_course();
+        $this->assertInstanceOf(\stdClass::class, $course);
+
+        // A hand-code function for course:shortname.
+        $linkfunction = helper::find_link_function('course', 'shortname');
+        $this->assertInstanceOf(\Closure::class, $linkfunction);
+        $linkstring = $linkfunction((object)['id' => $course->id]);
+        $this->assertEquals("https://www.example.com/moodle/course/view.php?id={$course->id}", $linkstring);
+
+        // The page module.
+        $page = $this->getDataGenerator()->create_module('page', (object) [
+            'course' => $course->id,
+            'content' => 'This is a page content with a link to https://example.com.au',
+            'contentformat' => FORMAT_HTML,
+        ]);
+        $this->assertInstanceOf(\stdClass::class, $page);
+        $this->find_module('page', $page->id);
+
+        // The assign module.
+        $assign = $this->getDataGenerator()->create_module('assign', (object)[
+            'course' => $course->id,
+            'name' => 'Test!',
+            'intro' => 'This is an assignment with a link to https://example.com.au/5678',
+            'introformat' => FORMAT_HTML,
+        ]);
+        $this->assertInstanceOf(\stdClass::class, $assign);
+        $this->find_module('assign', $assign->id);
+
+    }
+
 }
