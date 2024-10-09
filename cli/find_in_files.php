@@ -65,6 +65,10 @@ list($options, $unrecognized) = cli_get_params(
         'output'        => null,
         'components'    => '',
         'skip-components'   => '',
+        'mimetypes'     => '',
+        'skip-mimetypes'=> '',
+        'filenames'     => '',
+        'skip-filenames'=> '',
         'skip-areas'    => '',
         'summary'       => false,
         'help'          => false,
@@ -127,7 +131,8 @@ fputcsv($stream, $columnheaders);
 $pattern = '/' . $search . '/i';
 global $DB;
 
-[$whereclause, $params] = helper::make_whereclause_for_components($components, $skipcomponents, $skipareas);
+[$whereclause, $params] = helper::make_whereclause_for_components($components, $skipcomponents, $skipareas,
+ $mimetypes, $skipmimetypes, $filenames, $skipfilenames);
 print " WHERE: $whereclause \n";
 print_r ($params);
 

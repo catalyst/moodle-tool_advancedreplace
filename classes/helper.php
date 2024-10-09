@@ -736,6 +736,17 @@ class helper {
         } 
     }
 
+    public static function make_where_phrase($column, $values) {
+        if ( ! empty($values)) {
+            $wherephrase .= '( (0=1) ';
+            foreach (explode(',', $values) as $value) {
+                $paramnumber ++;
+                $wherephrase .= " OR ( $column = :param{$paramnumber} ) ";
+                $params["param{$paramnumber}"] = $value;
+            }
+            $wherephrase .= ' )';
+        }
+    }
     public static function make_whereclause_for_components($components, $skipcomponents, $skipareas){
         $params = [];
         $paramnumber = 0;
@@ -760,6 +771,11 @@ class helper {
             $whereclause .= ' )';
         }
 
+        $whereclause .= ' AND ' . make_where_phrase('mimetype', $mimetypes);
+
+        // Todo: filenames with LIKE
+// Todo: skip mimetypes
+// TOdo: skip filenames        
         if ( ! empty($skipcomponents)) {
             foreach( explode(',', $skipcomponents) as $component) {
                 $paramnumber ++;
