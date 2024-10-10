@@ -698,6 +698,73 @@ class helper {
     }
 
     /**
+     * When searching a file:
+     * - check the mimetype, some will have special actions.
+     * - application/zip.h5p has a specila action: unzip it and test each internal file.
+     *   The internal files might have special actions, so there may be some recursion, but not today!
+     * 
+     *
+     * @param [type] $filerecord
+     * @param [type] $pattern
+     * @param [type] $stream
+     * @return void
+     */
+
+     const CSV_CONTEXTID = 0;
+     const CSV_COMPONENT = 1;
+     const CSV_FILEAREA  = 2;
+     const CSV_ITEMID    = 3;
+     const CSV_FILEPATH  = 4;
+     const CSV_FILENAME  = 5;
+     const CSV_MIMETYPE  = 6;
+     const CSV_STRATEGY  = 7;
+     const CSV_INTERNAL  = 8;
+     const CSV_OFFSET    = 9;
+     const CSV_MATCH     = 10;
+     const CSV_REPLACE   = 11;
+     
+    /**
+     * grep_file_content
+     * 
+     */
+    public static function grep_content($csv, $content, $pattern, $stream) {
+        if (preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach($matches[0] as $match) {
+                $csv[self::CSV_OFFSET] = $match[1];
+                $csv[self::CSV_MATCH] = $match[0];
+                fputcsv($stream, $csv);
+            }
+        } 
+    }
+
+    public static function unzip_content($csv, $content, $pattern, $stream) {
+        static $finfo = null;
+        if ($finfo == null) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        }
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'zip');
+        file_put_contents($tmpFile, $content);
+        $zip = new \ZipArchive();
+    
+        if ($zip->open($tmpFile) === TRUE) {
+            // Extract the contents or work with the ZIP file here
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $fileContents = $zip->getFromIndex($i);
+                $mimeType = $finfo->buffer($fileContents);
+                $csv[self::CSV_INTERNAL] = $stat['name'];
+                self::grep_content($csv, $fileContents, $pattern, $stream);
+            }
+            $zip->close();
+        }
+        // Todo: else raise exception
+        
+        unlink($tmpFile);
+    }
+
+
+    /**
      * Search the file, looking for the regular expression.
      * Report the matches into the stream.
      *
@@ -705,7 +772,8 @@ class helper {
      * @param string $pattern a regular expression to search for
      * @param resource $stream  the open csv file to receive the matches
      */
-    public static function search_file($filerecord, $pattern, $stream) {
+    public static function search_file(object $filerecord, string $pattern, $stream): void {
+        print_r ($filerecord);
         print "searching file: {$filerecord->filename}\n";
         static $fs = null;
         if (empty($fs)) {
@@ -720,21 +788,27 @@ class helper {
             $filerecord->filename
         );
        
-        if (preg_match_all($pattern, $file->get_content(), $matches, PREG_OFFSET_CAPTURE)) {
-            foreach($matches[0] as $match) {
-                fputcsv($stream, [
-                    $filerecord->contextid, 
-                    $filerecord->component, 
-                    $filerecord->filearea, 
-                    $filerecord->itemid, 
-                    $filerecord->filepath, 
-                    $filerecord->filename,
-                    $match[1],
-                    $match[0],
-                    '',
-                    ]);
-            }
-        } 
+        $csv = [
+            self::CSV_CONTEXTID => $filerecord->contextid, 
+            self::CSV_COMPONENT => $filerecord->component, 
+            self::CSV_FILEAREA  => $filerecord->filearea, 
+            self::CSV_ITEMID    => $filerecord->itemid, 
+            self::CSV_FILEPATH  => $filerecord->filepath, 
+            self::CSV_FILENAME  => $filerecord->filename,
+            self::CSV_MIMETYPE  => $filerecord->mimetype,
+            self::CSV_REPLACE   => '',
+        ];
+        switch ($filerecord->mimetype) {
+        case 'application/zip.h5p':
+            $csv[self::CSV_STRATEGY] = 'zip';
+            self::unzip_content($csv, $file->get_content(), $pattern, $stream);
+            break;
+        default:
+            $csv[self::CSV_STRATEGY] = 'plain';
+            $csv[self::CSV_INTERNAL] = '';
+            self::grep_content($csv, $file->get_content(), $pattern, $stream);
+            break;
+        }
     }
 
     public static function make_whereclause_for_components($components, $skipcomponents, $skipareas,
