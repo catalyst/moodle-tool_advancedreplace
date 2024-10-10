@@ -39,7 +39,26 @@ class helper {
     /** @var array SKIP_TABLES Additional tables that should always be skipped. Most are already handled by core. **/
     const SKIP_TABLES = [
         search::TABLE,
+        'search_simpledb_index',
     ];
+
+    /**
+     * Helper to format advancedreplace config
+     * @param string $name
+     * @return mixed formatted config
+     */
+    public static function get_config(string $name) {
+        $config = get_config('tool_advancedreplace', $name);
+
+        // Format include and exclude tables as an array, split by either newline or comma.
+        $tables = ['includetables', 'excludetables'];
+        if (in_array($name, $tables)) {
+            $matches = preg_split('/[\n,]+/', $config);
+            return array_filter(array_map('trim', $matches));;
+        }
+
+        return $config;
+    }
 
     /**
      * Get columns to search for in a table.
@@ -135,9 +154,10 @@ class helper {
         global $DB;
 
         // Build a list of tables and columns to search.
-        $tablelist = explode(',', $tables);
+        $cleantables = array_filter(array_map('trim', explode(',', $tables)));
+        $tables = array_merge(self::get_config('includetables'), $cleantables);
         $searchlist = [];
-        foreach ($tablelist as $table) {
+        foreach ($tables as $table) {
             $tableandcols = explode(':', $table);
             $tablename = $tableandcols[0];
             $columnname = $tableandcols[1] ?? '';
@@ -175,7 +195,7 @@ class helper {
         }
 
         // Skip tables and columns.
-        $skiptables = array_merge(self::SKIP_TABLES, explode(',', $skiptables));
+        $skiptables = array_merge(self::get_config('excludetables'), self::SKIP_TABLES, explode(',', $skiptables));
         $skipcolumns = explode(',', $skipcolumns);
 
         // Return the list of tables and actual columns to search.
@@ -486,6 +506,11 @@ class helper {
             $output = $dir . '/' . $filename;
         }
 
+        // Grab log settings, 0 is a valid setting so set false to a sensible default..
+        $logduration = get_config('tool_advancedreplace', 'logduration');
+        $logduration = $logduration === false ? 30 : $logduration;
+        $logoutput = [];
+
         // Start output.
         $fp = fopen($output, 'w');
 
@@ -510,14 +535,16 @@ class helper {
         // Output the result for each table.
         $rowcount = 0;
         $matches = 0;
-        $update = new \StdClass();
+        $update = new \stdClass();
         $update->time = time();
         $update->percent = 0;
         foreach ($searchlist as $table => $columns) {
             foreach ($columns as $column) {
+                $colname = $column->name;
+                $colstart = time();
+
                 // Show the table and column being searched.
                 if (isset($progress)) {
-                    $colname = $column->name;
                     $progress->update($rowcount, $totalrows, "Searching in $table:$colname");
                 }
 
@@ -527,17 +554,31 @@ class helper {
                 } else {
                     $results = self::plain_text_search($search, $table, $column, $summary, $fp);
                 }
-                $matches += $results['count'] ?? 0;
+
+                $colend = time();
+                $colduration = $colend - $colstart;
+                $colmatches = $results['count'] ?? 0;
+                $matches += $colmatches;
                 $rowcount += $rowcounts[$table] ?? 1;
 
+                // Add logging info.
+                if (!empty($colmatches) || $colduration >= $logduration) {
+                    $logoutput[] = (object) [
+                        'table' => $table,
+                        'column' => $colname,
+                        'rows' => $rowcounts[$table],
+                        'matches' => $colmatches,
+                        'time' => $colduration,
+                    ];
+                }
+
                 // Only update record progress every 10 seconds or 5 percent.
-                $time = time();
                 $percent = round(100 * $rowcount / $totalrows, 2);
-                if ($time > $update->time + 10 || $percent > $update->percent + 5) {
+                if ($colend > $update->time + 10 || $percent > $update->percent + 5) {
                     $record->set('progress', $percent);
                     $record->set('matches', $matches);
                     $record->save();
-                    $update->time = $time;
+                    $update->time = $colend;
                     $update->percent = 0;
                 }
             }
@@ -554,6 +595,15 @@ class helper {
         $record->save();
 
         fclose($fp);
+
+        // Display log output.
+        if (!empty($logoutput)) {
+            $format = "%-32s %-32s %10s %10s %10s";
+            mtrace(sprintf($format, "table", "column", "records", "matches", "time"));
+            foreach ($logoutput as $log) {
+                mtrace(sprintf($format, $log->table, $log->column, $log->rows, $log->matches, $log->time));
+            }
+        }
 
         // Save as pluginfile.
         if (!empty($matches)) {

@@ -32,7 +32,7 @@ final class helper_test extends \advanced_testcase {
     public static function build_searching_list_provider(): array {
         return [
             [
-                '', '', '', '',
+                '', '', '', '', [],
                 // Should include these tables/columns.
                 [
                     'page' => 'content, intro',
@@ -44,10 +44,12 @@ final class helper_test extends \advanced_testcase {
                     'assign' => 'id, introformat, course',
                     'config' => '',
                     'logstore_standard_log' => '',
+                    'tool_advancedreplace_search' => '',
+                    'search_simpledb_index' => '',
                 ],
             ],
             [
-                'page', '', '', '',
+                'page', '', '', '', [],
                 [
                     'page' => 'content, intro',
                 ],
@@ -56,7 +58,7 @@ final class helper_test extends \advanced_testcase {
                 ],
             ],
             [
-                'page:content,assign:intro', '', '', '',
+                'page:content,assign:intro', '', '', '', [],
                 [
                     'page' => 'content',
                     'assign' => 'intro',
@@ -67,7 +69,7 @@ final class helper_test extends \advanced_testcase {
                 ],
             ],
             [
-                '', 'assign', '', '',
+                '', 'assign', '', '', [],
                 [
                     'page' => '',
                 ],
@@ -76,7 +78,7 @@ final class helper_test extends \advanced_testcase {
                 ],
             ],
             [
-                '', 'assign', 'content', '',
+                '', 'assign', 'content', '', [],
                 [
                     'page' => '',
                 ],
@@ -85,7 +87,71 @@ final class helper_test extends \advanced_testcase {
                     'page:content' => '',
                 ],
             ],
-
+            // Exclude tables config setting.
+            [
+                '', '', '', '',
+                [
+                    'excludetables' => 'assign',
+                ],
+                [
+                    'page' => '',
+                ],
+                [
+                    'assign' => '',
+                ],
+            ],
+            // Both exclude tables config setting and skiptables.
+            [
+                '', 'page', '', '',
+                [
+                    'excludetables' => 'assign',
+                ],
+                [],
+                [
+                    'assign' => '',
+                    'page' => '',
+                ],
+            ],
+            // Include tables config setting.
+            [
+                '', '', '', '',
+                [
+                    'includetables' => 'assign',
+                ],
+                [
+                    'assign' => '',
+                ],
+                [
+                    'page' => '',
+                ],
+            ],
+            // Include tables config setting with columns.
+            [
+                '', '', '', '',
+                [
+                    'includetables' => "page:content\nassign:intro",
+                ],
+                [
+                    'page' => 'content',
+                    'assign' => 'intro',
+                ],
+                [
+                    'page' => 'intro',
+                    'assign' => 'name',
+                ],
+            ],
+            // Both include tables config setting and tables.
+            [
+                'page', '', '', '',
+                [
+                    'includetables' => 'assign',
+                ],
+                [
+                    'page' => '',
+                    'assign' => '',
+                ],
+                [],
+            ],
         ];
     }
 
@@ -105,8 +171,11 @@ final class helper_test extends \advanced_testcase {
      * return void
      */
     public function test_build_searching_list(string $tables, string $skiptables, string $skipcolumns , string $searchstring,
-                                              array  $expectedlist, array $unexpectedlist): void {
+                                              array $config, array $expectedlist, array $unexpectedlist): void {
         $this->resetAfterTest();
+        foreach ($config as $name => $value) {
+            set_config($name, $value, 'tool_advancedreplace');
+        }
         [$count, $searchlist] = helper::build_searching_list($tables, $skiptables, $skipcolumns, $searchstring);
 
         // Columns should be in the result.
