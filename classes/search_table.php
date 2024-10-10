@@ -142,6 +142,18 @@ class search_table extends \table_sql {
     }
 
     /**
+     * Formats content for the search column.
+     *
+     * @param stdClass $record
+     * @return string
+     */
+    public function col_search(stdClass $record): string {
+        $class = 'border p-1 d-inline';
+        $style = 'white-space: pre-wrap;';
+        return \html_writer::tag('pre', $record->search, ['class' => $class, 'style' => $style]);
+    }
+
+    /**
      * Generate content for progress column.
      *
      * @param stdClass $record
