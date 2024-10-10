@@ -25,12 +25,26 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
+    $category = new admin_category('advancereplacefolder', get_string('pluginname', 'tool_advancedreplace'));
+    $ADMIN->add('tools', $category);
+
+    $settings = new admin_settingpage('tool_advancedreplace', get_string('generalsettings', 'admin'));
+    $ADMIN->add('advancereplacefolder', $settings);
+
     $ADMIN->add(
-        'tools',
+        'advancereplacefolder',
         new admin_externalpage(
             'tool_advancedreplace_search',
             get_string('searchpagename', 'tool_advancedreplace'),
             new moodle_url('/admin/tool/advancedreplace/search.php'),
         )
     );
+
+    $settings->add(new admin_setting_configtextarea('tool_advancedreplace/excludetables',
+        get_string('settings:excludetables', 'tool_advancedreplace'),
+        get_string('settings:excludetables_help', 'tool_advancedreplace'), '', PARAM_TEXT));
+
+    $settings->add(new admin_setting_configtextarea('tool_advancedreplace/includetables',
+        get_string('settings:includetables', 'tool_advancedreplace'),
+        get_string('settings:includetables_help', 'tool_advancedreplace'), '', PARAM_TEXT));
 }

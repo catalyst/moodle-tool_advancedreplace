@@ -42,6 +42,24 @@ class helper {
     ];
 
     /**
+     * Helper to format advancedreplace config
+     * @param string $name
+     * @return mixed formatted config
+     */
+    public static function get_config(string $name) {
+        $config = get_config('tool_advancedreplace', $name);
+
+        // Format include and exclude tables as an array, split by either newline or comma.
+        $tables = ['includetables', 'excludetables'];
+        if (in_array($name, $tables)) {
+            $matches = preg_split('/[\n,]+/', $config);
+            return array_filter(array_map('trim', $matches));;
+        }
+
+        return $config;
+    }
+
+    /**
      * Get columns to search for in a table.
      *
      * @param string $table The table to search.
@@ -135,9 +153,10 @@ class helper {
         global $DB;
 
         // Build a list of tables and columns to search.
-        $tablelist = explode(',', $tables);
+        $cleantables = array_filter(array_map('trim', explode(',', $tables)));
+        $tables = array_merge(self::get_config('includetables'), $cleantables);
         $searchlist = [];
-        foreach ($tablelist as $table) {
+        foreach ($tables as $table) {
             $tableandcols = explode(':', $table);
             $tablename = $tableandcols[0];
             $columnname = $tableandcols[1] ?? '';
@@ -175,7 +194,7 @@ class helper {
         }
 
         // Skip tables and columns.
-        $skiptables = array_merge(self::SKIP_TABLES, explode(',', $skiptables));
+        $skiptables = array_merge(self::get_config('excludetables'), self::SKIP_TABLES, explode(',', $skiptables));
         $skipcolumns = explode(',', $skipcolumns);
 
         // Return the list of tables and actual columns to search.
