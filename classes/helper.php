@@ -743,6 +743,10 @@ class helper {
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
         }
 
+        if (strlen($content) == 0) {
+            // The file is empty. There will be no match.
+            return;
+        }
         $tmpFile = tempnam(sys_get_temp_dir(), 'zip');
         file_put_contents($tmpFile, $content);
         $zip = new \ZipArchive();
@@ -759,7 +763,6 @@ class helper {
             $zip->close();
         }
         // Todo: else raise exception
-        
         unlink($tmpFile);
     }
 
@@ -773,8 +776,6 @@ class helper {
      * @param resource $stream  the open csv file to receive the matches
      */
     public static function search_file(object $filerecord, string $pattern, $stream): void {
-        print_r ($filerecord);
-        print "searching file: {$filerecord->filename}\n";
         static $fs = null;
         if (empty($fs)) {
             $fs = get_file_storage();
