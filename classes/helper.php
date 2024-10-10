@@ -39,6 +39,7 @@ class helper {
     /** @var array SKIP_TABLES Additional tables that should always be skipped. Most are already handled by core. **/
     const SKIP_TABLES = [
         search::TABLE,
+        'search_simpledb_index',
     ];
 
     /**

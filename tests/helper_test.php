@@ -45,6 +45,7 @@ final class helper_test extends \advanced_testcase {
                     'config' => '',
                     'logstore_standard_log' => '',
                     'tool_advancedreplace_search' => '',
+                    'search_simpledb_index' => '',
                 ],
             ],
             [
