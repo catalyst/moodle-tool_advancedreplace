@@ -103,12 +103,10 @@ class helper {
         });
 
         // Only search the specified columns.
-        foreach ($searchingcolumns as $column) {
-            if ($column !== self::ALL_COLUMNS) {
-                $columns = array_filter($columns, function($col) use ($column) {
-                    return $col->name == $column;
-                });
-            }
+        if (!in_array(self::ALL_COLUMNS, $searchingcolumns)) {
+            $columns = array_filter($columns, function($col) use ($searchingcolumns) {
+                return in_array($col->name, $searchingcolumns);
+            });
         }
 
         // Check if we need to skip some columns.
