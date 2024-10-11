@@ -32,6 +32,7 @@ $string['errormissingfields'] = 'The following fields are missing: {$a}';
 $string['errorregexnotsupported'] = 'Regular expression searches are not supported by this database.';
 $string['errorreplacetextnotsupported'] = 'Replace all text is not supported by this database.';
 $string['errorsearchmethod'] = 'Please choose one of the search methods: plain text or regular expression.';
+$string['eta'] = 'ETA: {$a}';
 $string['excludedtables'] = 'Several tables that don\'t support replacements are not searched. These include configuration, log, events, and session tables.';
 $string['field_actions'] = 'Actions';
 $string['field_duration'] = 'Duration';
