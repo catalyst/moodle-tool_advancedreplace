@@ -38,6 +38,7 @@ final class helper_test extends \advanced_testcase {
                 [
                     'page' => 'content, intro, name',
                     'assign' => 'intro, name',
+                    'user' => 'country',
                 ],
                 // Should not include these tables/columns.
                 [
@@ -100,6 +101,17 @@ final class helper_test extends \advanced_testcase {
                 [
                     'assign' => '',
                     'page:content' => '',
+                ],
+            ],
+            // Searches should automatically skip shorter columns.
+            [
+                '', '', '', 'searchtext', [],
+                // Check that both text and longer char feilds still appear.
+                [
+                    'page' => 'content, intro',
+                ],
+                [
+                    'user' => 'country',
                 ],
             ],
             // Exclude tables config setting.
@@ -194,6 +206,7 @@ final class helper_test extends \advanced_testcase {
      * @param string $skiptables the tables to skip
      * @param string $skipcolumns the columns to skip
      * @param string $searchstring the search string
+     * @param array $config config values that should be used for the test
      * @param array $expectedlist the tables/columns which should be in the result
      * @param array $unexpectedlist the tables/columns which should not be in the result
      *

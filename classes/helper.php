@@ -125,11 +125,10 @@ class helper {
         });
 
         // Exclude columns that has max length less than the search string.
+        // This shouldn't be used for regex in the current state.
         if (!empty($searchstring)) {
-            // Strip special characters from the search string.
-            $searchstring = preg_replace('/[^a-zA-Z0-9]/', '', $searchstring);
             $columns = array_filter($columns, function($col) use ($searchstring) {
-                $col->max_length >= strlen($searchstring);
+                return $col->max_length < 0 || $col->max_length >= strlen($searchstring);
             });
         }
 
@@ -522,7 +521,8 @@ class helper {
         // Perform the search.
         $record->set('timestart', time());
         $rowcounts = self::estimate_table_rows();
-        [$totalrows, $searchlist] = self::build_searching_list($tables, $skiptables, $skipcolumns, '', $rowcounts);
+        $searchstring = empty($regex) ? $search : '';
+        [$totalrows, $searchlist] = self::build_searching_list($tables, $skiptables, $skipcolumns, $searchstring, $rowcounts);
 
         // Don't update progress directly for web requests as they are processed as adhoc tasks.
         if ($origin !== 'web') {
