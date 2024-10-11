@@ -168,7 +168,7 @@ final class helper_test extends \advanced_testcase {
                     'page' => 'name',
                 ],
             ],
-            // Both include tables config setting and tables.
+            // Prioritise search options over include config.
             [
                 'page', '', '', '',
                 [
@@ -176,9 +176,10 @@ final class helper_test extends \advanced_testcase {
                 ],
                 [
                     'page' => '',
+                ],
+                [
                     'assign' => '',
                 ],
-                [],
             ],
         ];
     }

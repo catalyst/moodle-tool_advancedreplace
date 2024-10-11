@@ -54,7 +54,7 @@ class helper {
         $tables = ['includetables', 'excludetables'];
         if (in_array($name, $tables)) {
             $matches = preg_split('/[\n,]+/', $config);
-            return array_filter(array_map('trim', $matches));;
+            return array_filter(array_map('trim', $matches));
         }
 
         return $config;
@@ -152,8 +152,8 @@ class helper {
         global $DB;
 
         // Build a list of tables and columns to search.
-        $cleantables = array_filter(array_map('trim', explode(',', $tables)));
-        $tables = array_merge(self::get_config('includetables'), $cleantables);
+        $searchtables = array_filter(array_map('trim', explode(',', $tables)));
+        $tables = !empty($searchtables) ? $searchtables : self::get_config('includetables');
         $searchlist = [];
         foreach ($tables as $table) {
             $tableandcols = explode(':', $table);
