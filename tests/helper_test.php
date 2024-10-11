@@ -31,11 +31,12 @@ final class helper_test extends \advanced_testcase {
      */
     public static function build_searching_list_provider(): array {
         return [
+            // Check standard inclusions and exclusions.
             [
                 '', '', '', '', [],
                 // Should include these tables/columns.
                 [
-                    'page' => 'content, intro',
+                    'page' => 'content, intro, name',
                     'assign' => 'intro, name',
                 ],
                 // Should not include these tables/columns.
@@ -48,6 +49,7 @@ final class helper_test extends \advanced_testcase {
                     'search_simpledb_index' => '',
                 ],
             ],
+            // Tables option.
             [
                 'page', '', '', '', [],
                 [
@@ -57,6 +59,7 @@ final class helper_test extends \advanced_testcase {
                     'assign' => '',
                 ],
             ],
+            // Tables option with columns.
             [
                 'page:content,assign:intro', '', '', '', [],
                 [
@@ -68,6 +71,17 @@ final class helper_test extends \advanced_testcase {
                     'assign' => 'name',
                 ],
             ],
+            // Tables option with columns from same table.
+            [
+                'page:content,page:intro', '', '', '', [],
+                [
+                    'page' => 'content, intro',
+                ],
+                [
+                    'page' => 'name',
+                ],
+            ],
+            // Skip tables option.
             [
                 '', 'assign', '', '', [],
                 [
@@ -77,6 +91,7 @@ final class helper_test extends \advanced_testcase {
                     'assign' => '',
                 ],
             ],
+            // Skip columns option.
             [
                 '', 'assign', 'content', '', [],
                 [
@@ -138,6 +153,19 @@ final class helper_test extends \advanced_testcase {
                 [
                     'page' => 'intro',
                     'assign' => 'name',
+                ],
+            ],
+            // Include tables config setting with columns from same table.
+            [
+                '', '', '', '',
+                [
+                    'includetables' => "page:content\npage:intro",
+                ],
+                [
+                    'page' => 'content, intro',
+                ],
+                [
+                    'page' => 'name',
                 ],
             ],
             // Both include tables config setting and tables.
