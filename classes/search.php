@@ -40,6 +40,12 @@ class search extends \core\persistent {
         'summary',
     ];
 
+    /** @var array includetables from config. */
+    protected $includetables = null;
+
+    /** @var array excludetables from config. */
+    protected $excludetables = null;
+
     /**
      * Return the definition of the properties of this model.
      *
@@ -150,6 +156,57 @@ class search extends \core\persistent {
             $data->$column = $this->get($column);
         }
         return $data;
+    }
+
+    /**
+     * Loads config tables and stores the results.
+     * @param string $name
+     * @return array
+     */
+    protected function get_config_table(string $name): array {
+        if (isset($this->$name)) {
+            return $this->$name;
+        }
+        $value = get_config('tool_advancedreplace', $name);
+        $matches = preg_split('/[\n,]+/', $value);
+        $this->$name = array_filter(array_map('trim', $matches));
+        return $this->$name;
+    }
+
+    /**
+     * A custom list of tables to be searched. If no options are set, use tables from config.
+     * @return array tables to be searched
+     */
+    public function get_all_searchtables(): array {
+        $tables = array_filter(array_map('trim', explode(',', $this->get('tables'))));
+        return !empty($tables) ? $tables : $this->get_config_table('includetables');
+    }
+
+    /**
+     * A custom list of tables that should be skipped. This combines options, config and custom skip tables.
+     * Tables that are skipped by core as part of db_should_replace() are handled elsewhere.
+     * @return array tables that should be skipped
+     */
+    public function get_all_skiptables(): array {
+        return array_merge($this->get_config_table('excludetables'), helper::SKIP_TABLES, explode(',', $this->get('skiptables')));
+    }
+
+    /**
+     * A custom list of columns that should be skipped.
+     * @return array columns that should be skipped
+     */
+    public function get_all_skipcolumns(): array {
+        return explode(',', $this->get('skipcolumns'));
+    }
+
+    /**
+     * Calculates the minimum search length
+     * @return int minimum search length
+     */
+    public function get_min_search_length(): int {
+        // For regex, use prematch as a rough estimate, otherwise use no minimum.
+        $minsearch = empty($this->get('regex')) ? $this->get('search') : $this->get('prematch');
+        return strlen($minsearch);
     }
 
     /**

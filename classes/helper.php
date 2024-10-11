@@ -23,6 +23,7 @@ require_once($CFG->libdir . '/adminlib.php');
 use core\exception\moodle_exception;
 use core_text;
 use database_column_info;
+use tool_advancedreplace\search;
 
 /**
  * Helper class to search and replace text throughout the whole database.
@@ -43,38 +44,18 @@ class helper {
     ];
 
     /**
-     * Helper to format advancedreplace config
-     * @param string $name
-     * @return mixed formatted config
-     */
-    public static function get_config(string $name) {
-        $config = get_config('tool_advancedreplace', $name);
-
-        // Format include and exclude tables as an array, split by either newline or comma.
-        $tables = ['includetables', 'excludetables'];
-        if (in_array($name, $tables)) {
-            $matches = preg_split('/[\n,]+/', $config);
-            return array_filter(array_map('trim', $matches));
-        }
-
-        return $config;
-    }
-
-    /**
      * Get columns to search for in a table.
      *
+     * @param search $search persistent record
      * @param string $table The table to search.
      * @param array $searchingcolumns The columns to search.
-     * @param array $skiptables The tables to skip.
-     * @param array $skipcolumns The columns to skip.
-     * @param string $searchstring The string to search for.
      * @return array The columns to search.
      */
-    private static function get_columns(string $table, array $searchingcolumns = [],
-                                       array $skiptables = [], array $skipcolumns = [], string $searchstring = ''): array {
+    private static function get_columns(search $search, string $table, array $searchingcolumns = []): array {
         global $DB;
 
         // Skip tables that are in the skip list.
+        $skiptables = $search->get_all_skiptables();
         if (in_array($table, $skiptables)) {
             return [];
         }
@@ -98,6 +79,7 @@ class helper {
         }
 
         // Skip columns that are in the skip list.
+        $skipcolumns = $search->get_all_skipcolumns();
         $columns = array_filter($columns, function($col) use ($skipcolumns) {
             return !in_array($col->name, $skipcolumns);
         });
@@ -125,10 +107,10 @@ class helper {
         });
 
         // Exclude columns that has max length less than the search string.
-        // This shouldn't be used for regex in the current state.
-        if (!empty($searchstring)) {
-            $columns = array_filter($columns, function($col) use ($searchstring) {
-                return $col->max_length < 0 || $col->max_length >= strlen($searchstring);
+        $minlenth = $search->get_min_search_length();
+        if (!empty($minlenth)) {
+            $columns = array_filter($columns, function($col) use ($minlenth) {
+                return $col->max_length < 0 || $col->max_length >= $minlenth;
             });
         }
 
@@ -138,22 +120,17 @@ class helper {
     /**
      * Build searching list
      *
-     * @param string $tables A comma separated list of tables and columns to search.
-     * @param string $skiptables A comma separated list of tables to skip.
-     * @param string $skipcolumns A comma separated list of columns to skip.
-     * @param string $searchstring The string to search for, used to exclude columns having max length less than this.
+     * @param search $search persistent record
      * @param array $tablerowcounts Estimated table row counts, used to estimate the total number of data entires.
      *
      * @return array the estimated total number of data entries to search and the actual columns to search.
      */
-    public static function build_searching_list(string $tables = '', string $skiptables = '', string $skipcolumns = '',
-                                                string $searchstring = '', array $tablerowcounts = []): array {
+    public static function build_searching_list(search $search, array $tablerowcounts = []): array {
         global $DB;
 
         // Build a list of tables and columns to search.
-        $searchtables = array_filter(array_map('trim', explode(',', $tables)));
-        $tables = !empty($searchtables) ? $searchtables : self::get_config('includetables');
         $searchlist = [];
+        $tables = $search->get_all_searchtables();
         foreach ($tables as $table) {
             $tableandcols = explode(':', $table);
             $tablename = $tableandcols[0];
@@ -190,16 +167,11 @@ class helper {
                 $searchlist[$table] = [self::ALL_COLUMNS];
             }
         }
-
-        // Skip tables and columns.
-        $skiptables = array_merge(self::get_config('excludetables'), self::SKIP_TABLES, explode(',', $skiptables));
-        $skipcolumns = explode(',', $skipcolumns);
-
         // Return the list of tables and actual columns to search.
         $count = 0;
         $actualsearchlist = [];
         foreach ($searchlist as $table => $columns) {
-            $actualcolumns = self::get_columns($table, $columns, $skiptables, $skipcolumns, $searchstring);
+            $actualcolumns = self::get_columns($search, $table, $columns);
             sort($actualcolumns);
             $count += count($actualcolumns) * ($tablerowcounts[$table] ?? 1);
             if (!empty($actualcolumns)) {
@@ -279,21 +251,19 @@ class helper {
     /**
      * Perform a plain text search on a table and column.
      *
-     * @param string $search The text to search for.
+     * @param search $search persistent record.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
-     * @param bool $summary Whether to return a summary of the search.
      * @param null $stream The resource to write the results to. If null, the results are returned.
      * @return array The results of the search.
      */
-    public static function plain_text_search(string $search, string $table,
-                                             database_column_info $column, bool $summary = false,
-                                             $stream = null): array {
+    public static function plain_text_search(search $search, string $table, database_column_info $column, $stream = null): array {
         global $DB;
 
         $results = [];
         $linkstring = '';
         $linkfunction = self::find_link_function($table, $column->name);
+        $summary = $search->get('summary');
 
         // Potential course field in the table.
         $coursefield = self::find_course_field($table);
@@ -302,7 +272,7 @@ class helper {
         $tablealias = 't';
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
         $searchsql = $DB->sql_like("$tablealias." . $columnname, '?', false);
-        $searchparam = '%'.$DB->sql_like_escape($search).'%';
+        $searchparam = '%'.$DB->sql_like_escape($search->get('search')).'%';
 
         if (!empty($coursefield)) {
             $sql = "SELECT $tablealias.id,
@@ -363,22 +333,21 @@ class helper {
      * Perform a regular expression search on a table and column.
      * This function is only called if the database supports regular expression searches.
      *
-     * @param string $search The regular expression to search for.
+     * @param search $search persistent record.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
-     * @param bool $summary Whether to return a summary of the search.
      * @param null $stream The resource to write the results to. If null, the results are returned.
      * @return array
      */
-    public static function regular_expression_search(string $search, string $table,
-                                                     database_column_info $column, bool $summary = false,
-                                                     $stream = null): array {
+    public static function regex_search(search $search, string $table, database_column_info $column, $stream = null): array {
         global $DB;
 
         // Check if the database supports regular expression searches.
         if (!$DB->sql_regex_supported()) {
             throw new moodle_exception(get_string('errorregexnotsupported', 'tool_advancedreplace'));
         }
+
+        $summary = $search->get('summary');
 
         // Find Potential course field in the table.
         $coursefield = self::find_course_field($table);
@@ -387,7 +356,7 @@ class helper {
         $tablealias = 't';
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
         $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
-        $params = ['pattern' => $search];
+        $params = ['pattern' => $search->get('search')];
 
         $linkstring = '';
         $linkfunction = self::find_link_function($table, $column->name);
@@ -428,7 +397,7 @@ class helper {
                             $linkstring = $linkfunction($record);
                         }
                         // Replace "/" with "\/", as it is used as delimiters.
-                        $pattern = str_replace('/', '\\/', $search);
+                        $pattern = str_replace('/', '\\/', $search->get('search'));
 
                         // Perform the regular expression search.
                         preg_match_all( "/" . $pattern . "/", $data, $matches);
@@ -482,22 +451,13 @@ class helper {
     /**
      * Searches the DB using a persistent record.
      *
-     * @param \tool_advancedreplace\search $record
+     * @param search $search persistent record
      * @param string $output path
      * @return void
      */
-    public static function search_db(\tool_advancedreplace\search $record, string $output = ''): void {
-        $id = $record->get('id');
-        $search = $record->get('search');
-        $regex = $record->get('regex');
-        $tables = $record->get('tables');
-        $skiptables = $record->get('skiptables');
-        $skipcolumns = $record->get('skipcolumns');
-        $summary = $record->get('summary');
-        $origin = $record->get('origin');
-
-        $filename = \tool_advancedreplace\search::get_filename($record->to_record());
+    public static function search_db(search $search, string $output = ''): void {
         // Create temp output directory.
+        $filename = search::get_filename($search->to_record());
         if (!$output) {
             $dir = make_request_directory();
             $output = $dir . '/' . $filename;
@@ -512,20 +472,19 @@ class helper {
         $fp = fopen($output, 'w');
 
         // Show header.
-        if (!$summary) {
+        if (!$search->get('summary')) {
             fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link']);
         } else {
             fputcsv($fp, ['table', 'column']);
         }
 
         // Perform the search.
-        $record->set('timestart', time());
+        $search->set('timestart', time());
         $rowcounts = self::estimate_table_rows();
-        $searchstring = empty($regex) ? $search : '';
-        [$totalrows, $searchlist] = self::build_searching_list($tables, $skiptables, $skipcolumns, $searchstring, $rowcounts);
+        [$totalrows, $searchlist] = self::build_searching_list($search, $rowcounts);
 
         // Don't update progress directly for web requests as they are processed as adhoc tasks.
-        if ($origin !== 'web') {
+        if ($search->get('origin') === 'cli') {
             $progress = new \progress_bar();
             $progress->create();
         }
@@ -547,10 +506,10 @@ class helper {
                 }
 
                 // Perform the search.
-                if (!empty($regex)) {
-                    $results = self::regular_expression_search($search, $table, $column, $summary, $fp);
+                if (!empty($search->get('regex'))) {
+                    $results = self::regex_search($search, $table, $column, $fp);
                 } else {
-                    $results = self::plain_text_search($search, $table, $column, $summary, $fp);
+                    $results = self::plain_text_search($search, $table, $column, $fp);
                 }
 
                 $colend = time();
@@ -570,12 +529,12 @@ class helper {
                     ];
                 }
 
-                // Only update record progress every 10 seconds or 5 percent.
+                // Only update search progress every 10 seconds or 5 percent.
                 $percent = round(100 * $rowcount / $totalrows, 2);
                 if ($colend > $update->time + 10 || $percent > $update->percent + 5) {
-                    $record->set('progress', $percent);
-                    $record->set('matches', $matches);
-                    $record->save();
+                    $search->set('progress', $percent);
+                    $search->set('matches', $matches);
+                    $search->save();
                     $update->time = $colend;
                     $update->percent = 0;
                 }
@@ -587,10 +546,10 @@ class helper {
             $progress->update_full(100, "Finished searching into $output");
         }
 
-        $record->set('timeend', time());
-        $record->set('progress', 100);
-        $record->set('matches', $matches);
-        $record->save();
+        $search->set('timeend', time());
+        $search->set('progress', 100);
+        $search->set('matches', $matches);
+        $search->save();
 
         fclose($fp);
 
@@ -610,7 +569,7 @@ class helper {
                 'contextid' => \context_system::instance()->id,
                 'component' => 'tool_advancedreplace',
                 'filearea'  => 'search',
-                'itemid'    => $id,
+                'itemid'    => $search->get('id'),
                 'filepath'  => '/',
                 'filename'  => $filename,
             ];

@@ -218,7 +218,18 @@ final class helper_test extends \advanced_testcase {
         foreach ($config as $name => $value) {
             set_config($name, $value, 'tool_advancedreplace');
         }
-        [$count, $searchlist] = helper::build_searching_list($tables, $skiptables, $skipcolumns, $searchstring);
+
+        // Create a search.
+        $search = new search(0, (object) [
+            'search' => $searchstring,
+            'tables' => $tables,
+            'skiptables' => $skiptables,
+            'skipcolumns' => $skipcolumns,
+            'origin' => 'phpunit',
+        ]);
+        $search->create();
+
+        [$count, $searchlist] = helper::build_searching_list($search);
 
         // Columns should be in the result.
         foreach ($expectedlist as $table => $columns) {
@@ -287,11 +298,19 @@ final class helper_test extends \advanced_testcase {
             'introformat' => FORMAT_HTML,
         ]);
 
-        [$count, $searchlist] = helper::build_searching_list('page,assign');
+        // Create a search.
+        $search = new search(0, (object) [
+            'search' => $searchstring,
+            'tables' => 'page,assign',
+            'origin' => 'phpunit',
+        ]);
+        $search->create();
+
+        [$count, $searchlist] = helper::build_searching_list($search);
         $result = [];
         foreach ($searchlist as $table => $columns) {
             foreach ($columns as $column) {
-                $result = array_merge($result, helper::plain_text_search($searchstring, $table, $column));
+                $result = array_merge($result, helper::plain_text_search($search, $table, $column));
             }
         }
         $this->assertNotNull($result['page']['content']);
@@ -301,9 +320,9 @@ final class helper_test extends \advanced_testcase {
     /**
      * Regular expression search.
      *
-     * @covers \tool_advancedreplace\helper::regular_expression_search
+     * @covers \tool_advancedreplace\helper::regex_search
      */
-    public function test_regular_expression_search(): void {
+    public function test_regex_search(): void {
         $this->resetAfterTest();
 
         $searchstring = "https://example.com.au/\d+";
@@ -324,11 +343,20 @@ final class helper_test extends \advanced_testcase {
             'introformat' => FORMAT_HTML,
         ]);
 
-        [$count, $searchlist] = helper::build_searching_list('page,assign');
+        // Create a search.
+        $search = new search(0, (object) [
+            'search' => $searchstring,
+            'regex' => 1,
+            'tables' => 'page,assign',
+            'origin' => 'phpunit',
+        ]);
+        $search->create();
+
+        [$count, $searchlist] = helper::build_searching_list($search);
         $result = [];
         foreach ($searchlist as $table => $columns) {
             foreach ($columns as $column) {
-                $result = array_merge($result, helper::regular_expression_search($searchstring, $table, $column));
+                $result = array_merge($result, helper::regex_search($search, $table, $column));
             }
         }
 
