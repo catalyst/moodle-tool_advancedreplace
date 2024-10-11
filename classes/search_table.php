@@ -160,7 +160,8 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_progress($record): string {
-        return get_string('percents', 'moodle', round($record->progress, 2));
+        $progress = get_string('percents', 'moodle', round($record->progress, 2));
+        return $this->format_eta($record, $progress);
     }
 
     /**
@@ -184,15 +185,17 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_duration($record): string {
-        if (empty($record->timeend)) {
+        if (empty($record->timestart)) {
             return '';
         }
-        $duration = $record->duration;
+
+        // If task is finished use record duration, otherwise calculate in progress duration.
+        $duration = !empty($record->timeend) ? $record->duration : time() - $record->timestart;
         if (empty($duration)) {
             // The format_time function returns 'now' when the difference is exactly 0.
             return '0 ' . get_string('secs', 'moodle');
         }
-        return format_time($duration);
+        return $this->format_eta($record, format_time($duration));
     }
 
     /**
@@ -306,5 +309,27 @@ class search_table extends \table_sql {
         $url = new \moodle_url('/admin/tool/advancedreplace/search.php', ['copy' => $record->id]);
         $copyicon = $OUTPUT->render(new \pix_icon('t/copy', get_string('copyoptions', 'tool_advancedreplace')));
         return \html_writer::link($url, $copyicon, ['class' => 'action-icon']);
+    }
+
+    /**
+     * Adds ETA to a string
+     * @param stdClass $record
+     * @return string
+     */
+    protected function format_eta($record, $string): string {
+        global $OUTPUT;
+
+        if (!empty($record->timeend) || empty($record->progress) || $record->progress < 5) {
+            return $string;
+        }
+
+        // Calculate ETA.
+        $duration = time() - $record->timestart;
+        $estduration = $duration / ($record->progress / 100);
+        $remaining = $record->timestart + $estduration;
+
+        $format = get_string('strftimedatetime', 'langconfig');
+        $eta = get_string('eta', 'tool_advancedreplace', userdate($remaining, $format));
+        return \html_writer::span($string, '', ['title' => $eta]);
     }
 }
