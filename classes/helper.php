@@ -355,8 +355,15 @@ class helper {
         // Build query.
         $tablealias = 't';
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
-        $select = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
-        $params = ['pattern' => $search->get('search')];
+        $wheresql = [];
+        $params = [];
+        if ($prematch = $search->get('prematch')) {
+            $wheresql[] = $DB->sql_like("$tablealias." . $columnname, ':prematch', false);
+            $params['prematch'] = '%'.$DB->sql_like_escape($prematch).'%';
+        }
+        $wheresql[] = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
+        $params['pattern'] = $search->get('search');
+        $searchsql = implode(' AND ', $wheresql);
 
         $linkstring = '';
         $linkfunction = self::find_link_function($table, $column->name);
@@ -369,9 +376,9 @@ class helper {
                                c.shortname as courseshortname
                           FROM {".$table."} $tablealias
                      LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
-                         WHERE $select";
+                         WHERE $searchsql";
             } else {
-                $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $select";
+                $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
             }
 
             $limit = $summary ? 1 : 0;
