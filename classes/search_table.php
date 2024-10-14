@@ -314,7 +314,8 @@ class search_table extends \table_sql {
     /**
      * Adds ETA to a string
      * @param stdClass $record
-     * @return string
+     * @param string $string text to format
+     * @return string formatted text
      */
     protected function format_eta($record, $string): string {
         global $OUTPUT;
