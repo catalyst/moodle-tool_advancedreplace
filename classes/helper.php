@@ -456,15 +456,9 @@ class helper {
         }
 
         // Perform the search.
-        $search->set('timestart', time());
         $rowcounts = self::estimate_table_rows();
         [$totalrows, $searchlist] = self::build_searching_list($search, $rowcounts);
-
-        // Don't update progress directly for web requests as they are processed as adhoc tasks.
-        if ($search->get('origin') === 'cli') {
-            $progress = new \progress_bar();
-            $progress->create();
-        }
+        $search->mark_started($totalrows);
 
         // Output the result for each table.
         $rowcount = 0;
@@ -478,9 +472,7 @@ class helper {
                 $colstart = time();
 
                 // Show the table and column being searched.
-                if (isset($progress)) {
-                    $progress->update($rowcount, $totalrows, "Searching in $table:$colname");
-                }
+                $search->update_progress_bar($table, $colname);
 
                 // Perform the search.
                 $results = self::search_column($search, $table, $column, $fp);
@@ -502,27 +494,11 @@ class helper {
                     ];
                 }
 
-                // Only update search progress every 10 seconds or 5 percent.
-                $percent = round(100 * $rowcount / $totalrows, 2);
-                if ($colend > $update->time + 10 || $percent > $update->percent + 5) {
-                    $search->set('progress', $percent);
-                    $search->set('matches', $matches);
-                    $search->save();
-                    $update->time = $colend;
-                    $update->percent = 0;
-                }
+                $search->update_status($rowcount, $matches);
             }
         }
 
-        // Mark as finished.
-        if (isset($progress)) {
-            $progress->update_full(100, "Finished searching into $output");
-        }
-
-        $search->set('timeend', time());
-        $search->set('progress', 100);
-        $search->set('matches', $matches);
-        $search->save();
+        $search->mark_finished($matches, $output);
 
         fclose($fp);
 
