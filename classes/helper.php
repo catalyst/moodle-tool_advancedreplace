@@ -249,31 +249,45 @@ class helper {
     }
 
     /**
-     * Perform a plain text search on a table and column.
+     * Builds sql for a search on a table and column.
      *
      * @param search $search persistent record.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
-     * @param null $stream The resource to write the results to. If null, the results are returned.
-     * @return array The results of the search.
+     * @return array [$sql, $params]
      */
-    public static function plain_text_search(search $search, string $table, database_column_info $column, $stream = null): array {
+    private static function build_search_query(search $search, string $table, database_column_info $column): array {
         global $DB;
 
-        $results = [];
-        $linkstring = '';
-        $linkfunction = self::find_link_function($table, $column->name);
-        $summary = $search->get('summary');
+        // Check if column meta type can be searched.
+        if ($column->meta_type !== 'X' && $column->meta_type !== 'C') {
+            return ['', []];
+        }
 
-        // Potential course field in the table.
-        $coursefield = self::find_course_field($table);
-
-        // Build query.
         $tablealias = 't';
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
-        $searchsql = $DB->sql_like("$tablealias." . $columnname, '?', false);
-        $searchparam = '%'.$DB->sql_like_escape($search->get('search')).'%';
+        $coursefield = self::find_course_field($table);
+        $wheresql = [];
+        $params = [];
 
+        $regex = $search->get('regex');
+        $prematch = $search->get('prematch');
+
+        // Add base search using like.
+        if (!$regex || !empty($prematch)) {
+            $searchtext = !$regex ? $search->get('search') : $prematch;
+            $wheresql[] = $DB->sql_like("$tablealias." . $columnname, ':search', false);
+            $params['search'] = '%'.$DB->sql_like_escape($searchtext).'%';
+        }
+
+        // Add regex search.
+        if ($regex) {
+            $wheresql[] = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
+            $params['pattern'] = $search->get('search');
+        }
+
+        // Build query.
+        $wheresql = implode(' AND ', $wheresql);
         if (!empty($coursefield)) {
             $sql = "SELECT $tablealias.id,
                            $tablealias.$columnname,
@@ -281,157 +295,113 @@ class helper {
                            c.shortname as courseshortname
                       FROM {".$table."} $tablealias
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
-                     WHERE $searchsql";
+                     WHERE $wheresql";
         } else {
-            $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
+            $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $wheresql";
         }
 
-        if ($column->meta_type === 'X' || $column->meta_type === 'C') {
-            $limit = $summary ? 1 : 0;
-            $records = $DB->get_recordset_sql($sql, [$searchparam], 0, $limit);
-            if ($records->valid()) {
-                if (!empty($stream)) {
-                    if ($summary) {
-                        fputcsv($stream, [
-                            $table,
-                            $column->name,
-                        ]);
-                        $results['count'] = 1;
+        return [$sql, $params];
+    }
 
-                        // Return empty array to skip the rest of the function.
-                        return $results;
-                    }
+    /**
+     * Perform a search on a table and column.
+     *
+     * @param search $search persistent record.
+     * @param string $table The table to search.
+     * @param database_column_info $column The column to search.
+     * @param resource|null $stream The resource to write the results to. If null, the results are returned.
+     * @return array
+     */
+    public static function search_column(search $search, string $table, database_column_info $column, $stream = null): array {
+        global $DB;
 
-                    $count = 0;
-                    foreach ($records as $record) {
-                        if ( ! empty($linkfunction)) {
-                            $linkstring = $linkfunction($record);
-                        }
+        $results = [];
+        $regex = $search->get('regex');
+        $summary = $search->get('summary');
+
+        // If using a regex search make sure the database supports them.
+        if ($regex && !$DB->sql_regex_supported()) {
+            throw new \moodle_exception(get_string('errorregexnotsupported', 'tool_advancedreplace'));
+        }
+
+        // Build search.
+        [$sql, $params] = self::build_search_query($search, $table, $column);
+        if (empty($sql)) {
+            return $results;
+        }
+
+        // Get records.
+        $limit = $summary ? 1 : 0;
+        $records = $DB->get_recordset_sql($sql, $params, 0, $limit);
+        if (!$records->valid()) {
+            return $results;
+        }
+
+        // If no stream, return the records.
+        if (empty($stream)) {
+            $results[$table][$column->name] = $records;
+            return $results;
+        }
+
+        // Output summary search.
+        if ($summary) {
+            fputcsv($stream, [
+                $table,
+                $column->name,
+            ]);
+            $results['count'] = 1;
+            return $results;
+        }
+
+        // Output full search.
+        $count = 0;
+        $linkstring = '';
+        $linkfunction = self::find_link_function($table, $column->name);
+        foreach ($records as $record) {
+            if (!empty($linkfunction)) {
+                $linkstring = $linkfunction($record);
+            }
+
+            if (!$regex) {
+                fputcsv($stream, [
+                    $table,
+                    $column->name,
+                    $record->courseid ?? '',
+                    $record->courseshortname ?? '',
+                    $record->id,
+                    $record->{$column->name},
+                    '',
+                    $linkstring,
+                ]);
+                $count++;
+            } else {
+                // Process records to show result for each match.
+                $data = $record->{$column->name};
+
+                // Replace "/" with "\/", as it is used as delimiters.
+                $pattern = str_replace('/', '\\/', $search->get('search'));
+
+                // Perform the regular expression search.
+                preg_match_all( "/" . $pattern . "/", $data, $matches);
+
+                if (!empty($matches[0])) {
+                    foreach ($matches[0] as $match) {
                         fputcsv($stream, [
                             $table,
                             $column->name,
                             $record->courseid ?? '',
                             $record->courseshortname ?? '',
                             $record->id,
-                            $record->$columnname,
+                            $match,
                             '',
                             $linkstring,
                         ]);
                         $count++;
                     }
-                    $results['count'] = $count;
-                } else {
-                    $results[$table][$column->name] = $records;
                 }
             }
         }
-
-        return $results;
-    }
-
-    /**
-     * Perform a regular expression search on a table and column.
-     * This function is only called if the database supports regular expression searches.
-     *
-     * @param search $search persistent record.
-     * @param string $table The table to search.
-     * @param database_column_info $column The column to search.
-     * @param null $stream The resource to write the results to. If null, the results are returned.
-     * @return array
-     */
-    public static function regex_search(search $search, string $table, database_column_info $column, $stream = null): array {
-        global $DB;
-
-        // Check if the database supports regular expression searches.
-        if (!$DB->sql_regex_supported()) {
-            throw new moodle_exception(get_string('errorregexnotsupported', 'tool_advancedreplace'));
-        }
-
-        $summary = $search->get('summary');
-
-        // Find Potential course field in the table.
-        $coursefield = self::find_course_field($table);
-
-        // Build query.
-        $tablealias = 't';
-        $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
-        $wheresql = [];
-        $params = [];
-        if ($prematch = $search->get('prematch')) {
-            $wheresql[] = $DB->sql_like("$tablealias." . $columnname, ':prematch', false);
-            $params['prematch'] = '%'.$DB->sql_like_escape($prematch).'%';
-        }
-        $wheresql[] = "$tablealias." . $columnname . ' ' . $DB->sql_regex() . ' :pattern ';
-        $params['pattern'] = $search->get('search');
-        $searchsql = implode(' AND ', $wheresql);
-
-        $linkstring = '';
-        $linkfunction = self::find_link_function($table, $column->name);
-        $results = [];
-        if ($column->meta_type === 'X' || $column->meta_type === 'C') {
-            if (!empty($coursefield)) {
-                $sql = "SELECT $tablealias.id,
-                               $tablealias.$columnname,
-                               $tablealias.$coursefield as courseid,
-                               c.shortname as courseshortname
-                          FROM {".$table."} $tablealias
-                     LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
-                         WHERE $searchsql";
-            } else {
-                $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $searchsql";
-            }
-
-            $limit = $summary ? 1 : 0;
-            $records = $DB->get_recordset_sql($sql, $params, 0, $limit);
-
-            if ($records->valid()) {
-                if (!empty($stream)) {
-                    if ($summary) {
-                        fputcsv($stream, [
-                            $table,
-                            $column->name,
-                        ]);
-                        $results['count'] = 1;
-
-                        // Return empty array to skip the rest of the function.
-                        return $results;
-                    }
-
-                    $count = 0;
-                    foreach ($records as $record) {
-                        $data = $record->$columnname;
-                        if ( ! empty($linkfunction)) {
-                            $linkstring = $linkfunction($record);
-                        }
-                        // Replace "/" with "\/", as it is used as delimiters.
-                        $pattern = str_replace('/', '\\/', $search->get('search'));
-
-                        // Perform the regular expression search.
-                        preg_match_all( "/" . $pattern . "/", $data, $matches);
-
-                        if (!empty($matches[0])) {
-                            // Show the result foreach match.
-                            foreach ($matches[0] as $match) {
-                                fputcsv($stream, [
-                                    $table,
-                                    $column->name,
-                                    $record->courseid ?? '',
-                                    $record->courseshortname ?? '',
-                                    $record->id,
-                                    $match,
-                                    '',
-                                    $linkstring,
-                                ]);
-                                $count++;
-                            }
-                        }
-                    }
-                    $results['count'] = $count;
-                } else {
-                    $results[$table][$column->name] = $records;
-                }
-            }
-        }
+        $results['count'] = $count;
         return $results;
     }
 
@@ -513,11 +483,7 @@ class helper {
                 }
 
                 // Perform the search.
-                if (!empty($search->get('regex'))) {
-                    $results = self::regex_search($search, $table, $column, $fp);
-                } else {
-                    $results = self::plain_text_search($search, $table, $column, $fp);
-                }
+                $results = self::search_column($search, $table, $column, $fp);
 
                 $colend = time();
                 $colduration = $colend - $colstart;

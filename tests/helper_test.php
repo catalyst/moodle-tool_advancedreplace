@@ -273,7 +273,7 @@ final class helper_test extends \advanced_testcase {
     /**
      * Plain text search.
      *
-     * @covers \tool_advancedreplace\helper::plain_text_search
+     * @covers \tool_advancedreplace\helper::search_column
      */
     public function test_plain_text_search(): void {
         $this->resetAfterTest();
@@ -310,7 +310,7 @@ final class helper_test extends \advanced_testcase {
         $result = [];
         foreach ($searchlist as $table => $columns) {
             foreach ($columns as $column) {
-                $result = array_merge($result, helper::plain_text_search($search, $table, $column));
+                $result = array_merge($result, helper::search_column($search, $table, $column));
             }
         }
         $this->assertNotNull($result['page']['content']);
@@ -320,7 +320,7 @@ final class helper_test extends \advanced_testcase {
     /**
      * Regular expression search.
      *
-     * @covers \tool_advancedreplace\helper::regex_search
+     * @covers \tool_advancedreplace\helper::search_column
      */
     public function test_regex_search(): void {
         $this->resetAfterTest();
@@ -356,7 +356,7 @@ final class helper_test extends \advanced_testcase {
         $result = [];
         foreach ($searchlist as $table => $columns) {
             foreach ($columns as $column) {
-                $result = array_merge($result, helper::regex_search($search, $table, $column));
+                $result = array_merge($result, helper::search_column($search, $table, $column));
             }
         }
 
