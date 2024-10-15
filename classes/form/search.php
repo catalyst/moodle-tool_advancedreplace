@@ -62,26 +62,32 @@ class search extends \core\form\persistent {
         $mform->addElement('text', 'prematch', get_string('field_prematch', 'tool_advancedreplace'), $fullwidth);
         $mform->setType('prematch', PARAM_RAW);
         $mform->hideIf('prematch', 'regex');
+        // Use group as a workaround to use hideIf on static element for 4.1, fixed by MDL-66251 in 4.3.
+        $prematchhelp = [];
+        $prematchhelp[] =& $mform->createElement('static', 'prematch_help', '',
+            get_string('field_prematch_help', 'tool_advancedreplace'));
+        $mform->addGroup($prematchhelp, 'prematch_group');
+        $mform->hideif('prematch_group', 'regex');
 
         $mform->addElement('text', 'name', get_string('field_name', 'tool_advancedreplace'), $fullwidth);
-        $mform->addHelpButton('name', 'field_name', 'tool_advancedreplace');
         $mform->setType('name', PARAM_RAW);
         $mform->setDefault('name', '');
+        $mform->addElement('static', 'name_help', '', get_string("field_name_help", "tool_advancedreplace"));
 
         $mform->addElement('textarea', 'tables', get_string("field_tables", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('tables', 'field_tables', 'tool_advancedreplace');
         $mform->setType('tables', PARAM_RAW);
         $mform->setDefault('tables', '');
+        $mform->addElement('static', 'tables_help', '', get_string("field_tables_help", "tool_advancedreplace"));
 
         $mform->addElement('textarea', 'skiptables', get_string("field_skiptables", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('skiptables', 'field_skiptables', 'tool_advancedreplace');
         $mform->setType('skiptables', PARAM_RAW);
         $mform->setDefault('skiptables', '');
+        $mform->addElement('static', 'skiptables_help', '', get_string("field_skiptables_help", "tool_advancedreplace"));
 
         $mform->addElement('textarea', 'skipcolumns', get_string("field_skipcolumns", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('skipcolumns', 'field_skipcolumns', 'tool_advancedreplace');
         $mform->setType('skipcolumns', PARAM_RAW);
         $mform->setDefault('skipcolumns', '');
+        $mform->addElement('static', 'skipcolumns_help', '', get_string("field_skipcolumns_help", "tool_advancedreplace"));
 
         $mform->addElement('checkbox', 'summary', get_string('field_summary', 'tool_advancedreplace'));
         $mform->addHelpButton('summary', 'field_summary', 'tool_advancedreplace');
