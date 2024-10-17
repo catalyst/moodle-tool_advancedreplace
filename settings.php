@@ -41,7 +41,7 @@ if ($hassiteconfig) {
     );
 
     $ADMIN->add(
-        'tools',
+        'advancereplacefolder',
         new admin_externalpage(
             'tool_advancedreplace_files',
             get_string('filespagename', 'tool_advancedreplace'),
