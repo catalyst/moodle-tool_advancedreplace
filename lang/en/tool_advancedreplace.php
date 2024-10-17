@@ -68,8 +68,8 @@ $string['field_skipfilenames_help'] = 'Omit these file names from the search. Se
 $string['field_mimetypes_help'] = 'Restrict the search to these mime types. Separate mime types with commas. eg application/zip.h5p,application/json';
 $string['field_skipmimetypes_help'] = 'Omit these mime types from the search. Separate mime types with commas. eg image/jpeg,image/png';
 $string['field_skipareas_help'] = 'Omit these file areas from the search. Separate areas with commas. eg legacy,submission_files';
-
 $string['field_name_help'] = 'Optional name to identify the search. Will also be used as filename.';
+$string['field_pattern_help'] = 'Regular expression to be matched in the files.';
 $string['field_prematch_help'] = 'Optional filter to prematch a search before regex. This may help speed up the search, but the performance will depend on the DB engine, the complexity of the regex and table indexes.';
 $string['field_tables_help'] = 'Tables and columns to search. Separate multiple tables/columns with a comma. If not specified, search all tables and columns. Example format: <code>user,assign_submission:submission</code>';
 $string['field_skiptables_help'] = 'Tables to skip. Separate multiple tables with a comma.';
