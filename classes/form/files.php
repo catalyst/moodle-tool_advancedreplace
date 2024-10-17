@@ -32,8 +32,11 @@ require_once("$CFG->libdir/formslib.php");
  * Site wide files-replace form.
  */
 class files extends \core\form\persistent {
+    /** @var string Name of this plugin. */
+    const PLUGIN = 'tool_advancedreplace';
+
     /** @var string Persistent class name. */
-    protected static $persistentclass = 'tool_advancedreplace\\files';
+    protected static $persistentclass = self::PLUGIN .'\\files';
 
     /**
      * Form definition
@@ -53,49 +56,50 @@ class files extends \core\form\persistent {
         $mform->addElement('hidden', 'origin');
         $mform->setConstant('origin', 'web');
 
-        $mform->addElement('text', 'pattern', get_string('field_pattern', 'tool_advancedreplace'), $fullwidth);
+        $mform->addElement('text', 'pattern', get_string('field_pattern', self::PLUGIN), $fullwidth);
         $mform->setType('pattern', PARAM_RAW);
         $mform->addRule('pattern', get_string('required'), 'required', null, 'client');
+        $mform->addElement('static', 'pattern_help', '', get_string('field_pattern_help', self::PLUGIN));
 
-        $mform->addElement('text', 'name', get_string('field_name', 'tool_advancedreplace'), $fullwidth);
-        $mform->addHelpButton('name', 'field_name', 'tool_advancedreplace');
+        $mform->addElement('text', 'name', get_string('field_name', self::PLUGIN), $fullwidth);
         $mform->setType('name', PARAM_RAW);
         $mform->setDefault('name', '');
+        $mform->addElement('static', 'name_help', '', get_string('field_name_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'components', get_string("field_components", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('components', 'field_components', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'components', get_string("field_components", self::PLUGIN), $textareasize);
         $mform->setType('components', PARAM_RAW);
         $mform->setDefault('components', '');
+        $mform->addElement('static', 'components_help', '', get_string( 'field_components_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'skipcomponents', get_string("field_skipcomponents", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('skipcomponents', 'field_skipcomponents', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'skipcomponents', get_string("field_skipcomponents", self::PLUGIN), $textareasize);
         $mform->setType('skipcomponents', PARAM_RAW);
         $mform->setDefault('skipcomponents', '');
+        $mform->addElement('static', 'skipcomponents_help', '', get_string( 'field_skipcomponents_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'mimetypes', get_string("field_mimetypes", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('mimetypes', 'field_mimetypes', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'mimetypes', get_string("field_mimetypes", self::PLUGIN), $textareasize);
         $mform->setType('mimetypes', PARAM_RAW);
         $mform->setDefault('mimetypes', '');
+        $mform->addElement('static', 'mimetypes_help', '', get_string( 'field_mimetypes_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'skipmimetypes', get_string("field_skipmimetypes", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('skipmimetypes', 'field_skipmimetypes', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'skipmimetypes', get_string("field_skipmimetypes", self::PLUGIN), $textareasize);
         $mform->setType('skipmimetypes', PARAM_RAW);
         $mform->setDefault('skipmimetypes', '');
+        $mform->addElement('static', 'skipmimetypes_help', '', get_string( 'field_skipmimetypes_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'filenames', get_string("field_filenames", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('filenames', 'field_filenames', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'filenames', get_string("field_filenames", self::PLUGIN), $textareasize);
         $mform->setType('filenames', PARAM_RAW);
         $mform->setDefault('filenames', '');
+        $mform->addElement('static', 'filenames_help', '', get_string( 'field_filenames_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'skipfilenames', get_string("field_skipfilenames", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('skipfilenames', 'field_skipfilenames', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'skipfilenames', get_string("field_skipfilenames", self::PLUGIN), $textareasize);
         $mform->setType('skipfilenames', PARAM_RAW);
         $mform->setDefault('skipfilenames', '');
+        $mform->addElement('static', 'skipfilenames_help', '', get_string( 'field_skipfilenames_help', self::PLUGIN));
 
-        $mform->addElement('textarea', 'skipareas', get_string("field_skipareas", "tool_advancedreplace"), $textareasize);
-        $mform->addHelpButton('skipareas', 'field_skipareas', 'tool_advancedreplace');
+        $mform->addElement('textarea', 'skipareas', get_string("field_skipareas", self::PLUGIN), $textareasize);
         $mform->setType('skipareas', PARAM_RAW);
         $mform->setDefault('skipareas', '');
+        $mform->addElement('static', 'skipareas_help', '', get_string( 'field_skipareas_help', self::PLUGIN));
 
         $this->add_action_buttons(true, get_string('search'));
     }
