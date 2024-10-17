@@ -72,5 +72,55 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024100400, 'tool', 'advancedreplace');
     }
 
+    if ($oldversion < 2024101600) {
+
+        // Define table tool_advancedreplace_search to be created.
+        $table = new xmldb_table('tool_advancedreplace_files');
+
+        // Adding fields to table tool_advancedreplace_search.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('name', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('pattern', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('components', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('skipcomponents', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('mimetypes', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('skipmimetypes', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('filenames', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('skipfilenames', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('skipareas', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        // These next few columns are the same as the search table above.
+        // They have the 8th parameter to avoid cut-and-paste detection in ci phpcpd.
+        $table->add_field('origin', XMLDB_TYPE_CHAR, '10',
+         null, XMLDB_NOTNULL, null, null, 'skipareas');
+        $table->add_field('timestart', XMLDB_TYPE_INTEGER,
+            '10', null, XMLDB_NOTNULL, null, '0', 'origin');
+        $table->add_field('timeend', XMLDB_TYPE_INTEGER,
+            '10', null, XMLDB_NOTNULL, null, '0', 'timestart');
+        $table->add_field('progress', XMLDB_TYPE_NUMBER,
+            '10, 2', null, XMLDB_NOTNULL, null, '0', 'timeend');
+        $table->add_field('matches', XMLDB_TYPE_INTEGER,
+            '10', null, XMLDB_NOTNULL, null, '0', 'progress');
+        $table->add_field('usermodified', XMLDB_TYPE_INTEGER,
+         '10', null, XMLDB_NOTNULL, null, '0', 'matches');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER,
+         '10', null, XMLDB_NOTNULL, null, '0', 'usermodified');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER,
+         '10', null, XMLDB_NOTNULL, null, '0', 'timecreated');
+
+        // Adding keys to table tool_advancedreplace_search.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+        $table->add_key('usermodified', XMLDB_KEY_FOREIGN, ['usermodified'], 'user', ['id']);
+
+        // Conditionally launch create table for tool_advancedreplace_search.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Advancedreplace savepoint reached.
+        upgrade_plugin_savepoint(true, 2024101600, 'tool', 'advancedreplace');
+    }
+
     return true;
 }

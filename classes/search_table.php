@@ -27,6 +27,20 @@ use stdClass;
  */
 class search_table extends \table_sql {
 
+    /**
+     * Identifies the class used to interact with the database table.
+     *
+     * @var string
+     */
+    protected $dbclass = search::class;
+
+    /**
+     * Part of the url used to interact with these searches.
+     *
+     * @var string
+     */
+    protected $urlfragment = 'search.php';
+
     /** Columns to be displayed. */
     const COLUMNS = [
         'id',
@@ -72,7 +86,7 @@ class search_table extends \table_sql {
             $headers[] = get_string('field_' . $column, 'tool_advancedreplace');
         }
 
-        foreach (self::NOSORT_COLUMNS as $column) {
+        foreach (static::NOSORT_COLUMNS as $column) {
             $this->no_sorting($column);
         }
 
@@ -88,7 +102,7 @@ class search_table extends \table_sql {
      * @return string[]
      */
     protected function get_columns(): array {
-        $columns = self::COLUMNS;
+        $columns = static::COLUMNS;
         return $columns;
     }
 
@@ -98,7 +112,7 @@ class search_table extends \table_sql {
      * @return false|\type|void
      */
     public function setup() {
-        $table = search::TABLE;
+        $table = $this->dbclass::TABLE;
         $duration = 'CASE WHEN timeend - timestart > 0 THEN timeend - timestart ELSE 0 END AS duration';
         $this->set_sql(
             "*, $duration",
@@ -207,7 +221,7 @@ class search_table extends \table_sql {
     public function col_options($record): string {
         $options = [];
         $bool = ['regex', 'summary'];
-        foreach (self::OPTIONS as $option) {
+        foreach (static::OPTIONS as $option) {
             if (!empty($record->$option)) {
                 $name = get_string('field_' . $option, 'tool_advancedreplace');
                 $options[] = in_array($option, $bool) ? $name : $name . ': ' . $record->$option;
@@ -251,7 +265,7 @@ class search_table extends \table_sql {
         global $OUTPUT;
 
         // Make sure search is finished and we have a file.
-        if (empty($record->timeend) || !$file = \tool_advancedreplace\search::get_file($record)) {
+        if (empty($record->timeend) || !$file = $this->dbclass::get_file($record)) {
             return '';
         }
 
@@ -285,7 +299,8 @@ class search_table extends \table_sql {
             return '';
         }
 
-        $url = new \moodle_url('/admin/tool/advancedreplace/search.php', ['delete' => $record->id, 'sesskey' => sesskey()]);
+        $url = new \moodle_url('/admin/tool/advancedreplace/' . $this->urlfragment,
+            ['delete' => $record->id, 'sesskey' => sesskey()]);
         $action = new \confirm_action(get_string('confirm_delete', 'tool_advancedreplace'));
         $deleteicon = $OUTPUT->render(new \pix_icon('t/delete', get_string('delete')));
 
@@ -306,7 +321,7 @@ class search_table extends \table_sql {
         if (empty($record->timeend)) {
             return '';
         }
-        $url = new \moodle_url('/admin/tool/advancedreplace/search.php', ['copy' => $record->id]);
+        $url = new \moodle_url('/admin/tool/advancedreplace/' . $this->urlfragment, ['copy' => $record->id]);
         $copyicon = $OUTPUT->render(new \pix_icon('t/copy', get_string('copyoptions', 'tool_advancedreplace')));
         return \html_writer::link($url, $copyicon, ['class' => 'action-icon']);
     }

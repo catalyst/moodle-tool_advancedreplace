@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-use tool_advancedreplace\helper;
+use tool_advancedreplace\file_search;
 
 define('CLI_SCRIPT', true);
 
@@ -31,49 +31,54 @@ require_once($CFG->libdir.'/clilib.php');
 require_once($CFG->libdir.'/adminlib.php');
 
 $help =
-    "Search text throughout the whole database.
+    "Search for text in moodle files.
 
 Options:
 --search=STRING                  Required if --regex-match is not specified. String to search for.
 --regex-match=STRING             Required if --search is not specified. Use regular expression to match the search string.
 --output=FILE                    Required output file. If not specified, output to stdout.
---tables=tablename:columnname    Tables and columns to search. Separate multiple tables/columns with a comma.
+--components=componentname:areaname    Components and areas to search. Separate multiple components/areas with a comma.
                                  If not specified, search all tables and columns.
                                  If specify table only, search all columns in the table.
                                  Example:
-                                    --tables=user:username,user:email
-                                    --tables=user,assign_submission:submission
-                                    --tables=user,assign_submission
---skip-tables=tablenname         Tables to skip. Separate multiple tables with a comma.
+                                    --components=core_h5p:content
+                                    --components=core_h5p,assign_submission:submission
+--skip-components=componentname   Components to skip. Separate multiple components with a comma.
                                  Example:
-                                    --skip-tables=user,config
---skip-columns=columnname        Columns to skip. Separate multiple columns with a comma.
+                                    --skip-components=core_h5p,assign_submission
+--mimetypes=mimetype,mimetype   Mimetypes to be searched. Separate multipler type with commas.
+                                If empty, all mimetypes will be considred.
+--skip-mimetypes=mimetype,mimetype Mimetypes to be skipped.
+--filenames=filename            Cooma-separated list of file names to be searched.
+--skip-filenames=filename       Comma-separated list of file names to be omitted from the search.
+--skip-areas=areaname        Areas to skip. Separate multiple areas with a comma.
                                  Example:
-                                    --skip-columns=firstname,lastname
---summary                        Summary mode, only shows column/table where the text is found.
-                                 If not specified, run in detail mode, which shows the full text where the search string is found.
+                                    --skip-areas=draft,export
 -h, --help                       Print out this help.
 
 Example:
-\$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --search=thelostsoul --output=/tmp/result.csv
-\$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --regex-match=thelostsoul\\d+ --output=/tmp/result.csv
+\$ php find_in_files.php --regex-match=thelostsoul\\d+ --output=/tmp/result.csv
+\$ php find_in_files.php --regex-match='https:(.*).com' --output=/tmp/result.csv --mimetype=application/zip.h5p
 ";
 
 list($options, $unrecognized) = cli_get_params(
     [
-        'search'        => null,
         'regex-match'   => null,
         'output'        => null,
-        'tables'        => '',
-        'skip-tables'   => '',
-        'skip-columns'  => '',
-        'summary'       => false,
+        'components'    => '',
+        'skip-components'   => '',
+        'mimetypes'     => '',
+        'skip-mimetypes' => '',
+        'filenames'     => '',
+        'skip-filenames' => '',
+        'skip-areas'    => '',
         'help'          => false,
     ],
     [
         'h' => 'help',
     ]
 );
+core_php_time_limit::raise();
 
 if ($unrecognized) {
     $unrecognized = implode("\n  ", $unrecognized);
@@ -82,30 +87,23 @@ if ($unrecognized) {
 
 // Ensure that we have required parameters.
 if ($options['help']
-        || (!is_string($options['search']) && empty($options['regex-match']))
+        || empty($options['regex-match'])
         || empty($options['output'])
     ) {
     echo $help;
     exit(0);
 }
 
-// Ensure we only have one search method.
-if (!empty($options['regex-match']) && !empty($options['search'])) {
-    cli_error(get_string('errorsearchmethod', 'tool_advancedreplace'));
-}
-
 try {
     $data = new stdClass;
-    if (!empty($options['search'])) {
-        $data->search = validate_param($options['search'], PARAM_RAW);
-    } else {
-        $data->search = validate_param($options['regex-match'], PARAM_RAW);
-        $data->regex = true;
-    }
-    $data->tables = validate_param($options['tables'], PARAM_RAW);
-    $data->skiptables = validate_param($options['skip-tables'], PARAM_RAW);
-    $data->skipcolumns = validate_param($options['skip-columns'], PARAM_RAW);
-    $data->summary = validate_param($options['summary'], PARAM_RAW);
+    $data->pattern = validate_param($options['regex-match'], PARAM_RAW);
+    $data->components = validate_param($options['components'], PARAM_RAW);
+    $data->skipcomponents = validate_param($options['skip-components'], PARAM_RAW);
+    $data->mimetypes = validate_param($options['mimetypes'], PARAM_RAW);
+    $data->skipmimetypes = validate_param($options['skip-mimetypes'], PARAM_RAW);
+    $data->filenames = validate_param($options['filenames'], PARAM_RAW);
+    $data->skipfilenames = validate_param($options['skip-filenames'], PARAM_RAW);
+    $data->skipareas = validate_param($options['skip-areas'], PARAM_RAW);
     $output = validate_param($options['output'], PARAM_RAW);
 } catch (invalid_parameter_exception $e) {
     cli_error(get_string('errorinvalidparam', 'tool_advancedreplace'));
@@ -117,7 +115,7 @@ $data->name = ucfirst(pathinfo($output, PATHINFO_FILENAME));
 $data->origin = 'cli';
 
 // Run search.
-$search = new \tool_advancedreplace\search(0, $data);
-$search->create();
-helper::search_db($search, $output);
+$files = new \tool_advancedreplace\files(0, $data);
+$files->create();
+file_search::files($files, $output);
 exit(0);

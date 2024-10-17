@@ -14,20 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace tool_advancedreplace\task;
+
 /**
- * Version details.
+ * Ad-hoc task to search for regular expression matches in Moodle files.
  *
  * @package    tool_advancedreplace
  * @copyright  2024 Catalyst IT Australia Pty Ltd
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class files extends \core\task\adhoc_task {
 
-defined('MOODLE_INTERNAL') || die();
+    /**
+     * Action of task.
+     */
+    public function execute() {
+        // Get the custom data.
+        $data = $this->get_custom_data();
+        if (empty($data->searchid)) {
+            return;
+        }
 
+        $record = new \tool_advancedreplace\files($data->searchid);
+        if (empty($record)) {
+            return;
+        }
 
-$plugin->version   = 2024101600; // The current plugin version (Date: YYYYMMDDXX).
-$plugin->release   = 2024101600;
-$plugin->requires  = 2020110900; // Requires this Moodle version.
-$plugin->component = 'tool_advancedreplace';
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->supported = [401, 405];
+        \tool_advancedreplace\file_search::files($record);
+    }
+}
