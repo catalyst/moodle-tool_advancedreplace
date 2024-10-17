@@ -40,6 +40,15 @@ if ($hassiteconfig) {
         )
     );
 
+    $ADMIN->add(
+        'tools',
+        new admin_externalpage(
+            'tool_advancedreplace_files',
+            get_string('filespagename', 'tool_advancedreplace'),
+            new moodle_url('/admin/tool/advancedreplace/files.php'),
+        )
+    );
+
     $settings->add(new admin_setting_configtextarea('tool_advancedreplace/excludetables',
         get_string('settings:excludetables', 'tool_advancedreplace'),
         get_string('settings:excludetables_help', 'tool_advancedreplace'), '', PARAM_TEXT));
