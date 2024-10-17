@@ -197,6 +197,7 @@ class file_search {
                 'filepath'  => '/',
                 'filename'  => $filename,
             ];
+            $fs->create_file_from_pathname($fileinfo, $output);
         }
     }
 
