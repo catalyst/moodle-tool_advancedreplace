@@ -52,7 +52,7 @@ abstract class search extends \core\persistent {
     protected function after_delete($result): void {
         if ($result) {
             // Delete output pluginfiles.
-            if ($file = $this->get_file(self::to_record())) {
+            if ($file = $this->get_file()) {
                 $file->delete();
             }
         }
@@ -83,31 +83,65 @@ abstract class search extends \core\persistent {
     }
 
     /**
+     * Gets the file name for temporary search output.
+     * @return string filename of temporary output
+     */
+    public function get_temp_filename(): string {
+        return $this->filearea . '-' . $this->get('id');
+    }
+
+    /**
+     * Gets the file path for the temporary search output.
+     * @return string filepath of temporary output
+     */
+    public function get_temp_filepath(): string {
+        global $CFG;
+        return $CFG->tempdir . '/tool_advancedreplace/' . $this->get_temp_filename();
+    }
+
+    /**
+     * Returns the pluginfile url for both files and temp files.
+     * @param bool $temp add temp identifier to pluginfile
+     * @return string pluginfile url
+     */
+    public function get_pluginfile_url($temp = false) {
+        $pathname = $temp ? '/temp/' : '/';
+        return \moodle_url::make_pluginfile_url(
+            \context_system::instance()->id,
+            'tool_advancedreplace',
+            $this->filearea,
+            $this->get('id'),
+            $pathname,
+            $this->get_filename($temp)
+        )->out();
+    }
+
+    /**
      * Gets the file for the search output
-     * @param \stdClass $record
      * @return bool|\stored_file
      */
-    public static function get_file(\stdClass $record) {
-        $filename = self::get_filename($record);
+    public function get_file() {
         $fs = get_file_storage();
         return $fs->get_file(
             \context_system::instance()->id,
             'tool_advancedreplace',
-            'search',
-            $record->id,
+            $this->filearea,
+            $this->get('id'),
             '/',
-            $filename
+            $this->get_filename()
         );
     }
 
     /**
      * Gets the file name of the search output
-     * @param \stdClass $record
+     * @param bool $temp add temp identifier to filename
      * @return string filename
      */
-    public static function get_filename(\stdClass $record): string {
+    public function get_filename($temp = false): string {
         // The hardcoded default filename should not be changed.
-        $name = !empty($record->name) ? $record->name : 'searchresult-' . $record->id;
-        return strtolower($name) . '.csv';
+        $name = $this->get('name');
+        $filename = !empty($name) ? $name : 'searchresult-' . $this->get('id');
+        $temp = $temp ? '-temp' : '';
+        return strtolower($filename) . $temp . '.csv';
     }
 }

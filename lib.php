@@ -35,14 +35,30 @@
  * @return bool Returns false if we don't find a file.
  */
 function tool_advancedreplace_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
+    global $CFG;
+
     if ($context->contextlevel != CONTEXT_SYSTEM) {
         return false;
     }
     require_admin();
 
+    $filename = $args[1];
+    if ($args[1] === 'temp') {
+        // If we have a temp file, check if the finished file exists.
+        $filename = str_replace('-temp.csv', '.csv', $args[2]);
+    }
+
     $fs = get_file_storage();
-    $file = $fs->get_file($context->id, 'tool_advancedreplace', $filearea, $args[0], '/', $args[1]);
+    $file = $fs->get_file($context->id, 'tool_advancedreplace', $filearea, $args[0], '/', $filename);
     if (!$file) {
+        // Check if there's an in progress version.
+        $tempfile = "$CFG->tempdir/tool_advancedreplace/$filearea-$args[0]";
+        if (file_exists($tempfile)) {
+            // Send temp file without caching.
+            send_file($tempfile, $args[2], 0, 0, false, $forcedownload, '', false, $options);
+            return true;
+        }
+
         return false;
     }
     send_stored_file($file, null, 0, $forcedownload, $options);
