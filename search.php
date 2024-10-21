@@ -40,7 +40,7 @@ if (isset($copy)) {
 
 if (isset($delete)) {
     require_sesskey();
-    $search = new \tool_advancedreplace\search($delete);
+    $search = new \tool_advancedreplace\db_search($delete);
     $search->delete();
     \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));;
     redirect($url);
@@ -59,14 +59,14 @@ if (isset($id)) {
         redirect($url);
     } else if ($data = $form->get_data()) {
         if (empty($data->id)) {
-            $search = new \tool_advancedreplace\search(0, $data);
+            $search = new \tool_advancedreplace\db_search(0, $data);
             $search->create();
             $search->queue_task();
 
             \core\notification::success(get_string('searchqueued', 'tool_advancedreplace'));;
             redirect($url);
         } else {
-            // This should never modify an existing search..
+            // This should never modify an existing search.
             redirect($url);
         }
     } else {
@@ -75,7 +75,7 @@ if (isset($id)) {
         echo $OUTPUT->heading(get_string('searchpageheader', 'tool_advancedreplace'));
         if (isset($copy)) {
             // Load the original data without setting the persistent.
-            $search = new \tool_advancedreplace\search($copy);
+            $search = new \tool_advancedreplace\db_search($copy);
             $data = $search->copy_data();
             $form->set_data($data);
             echo $OUTPUT->notification(get_string('searchcopy', 'tool_advancedreplace'), core\output\notification::NOTIFY_SUCCESS);

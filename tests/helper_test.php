@@ -220,7 +220,7 @@ final class helper_test extends \advanced_testcase {
         }
 
         // Create a search.
-        $search = new search(0, (object) [
+        $search = new db_search(0, (object) [
             'search' => $searchstring,
             'tables' => $tables,
             'skiptables' => $skiptables,
@@ -299,7 +299,7 @@ final class helper_test extends \advanced_testcase {
         ]);
 
         // Create a search.
-        $search = new search(0, (object) [
+        $search = new db_search(0, (object) [
             'search' => $searchstring,
             'tables' => 'page,assign',
             'origin' => 'phpunit',
@@ -344,7 +344,7 @@ final class helper_test extends \advanced_testcase {
         ]);
 
         // Create a search.
-        $search = new search(0, (object) [
+        $search = new db_search(0, (object) [
             'search' => $searchstring,
             'regex' => 1,
             'tables' => 'page,assign',

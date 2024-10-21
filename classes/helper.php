@@ -23,7 +23,7 @@ require_once($CFG->libdir . '/adminlib.php');
 use core\exception\moodle_exception;
 use core_text;
 use database_column_info;
-use tool_advancedreplace\search;
+use tool_advancedreplace\db_search;
 
 /**
  * Helper class to search and replace text throughout the whole database.
@@ -39,19 +39,19 @@ class helper {
 
     /** @var array SKIP_TABLES Additional tables that should always be skipped. Most are already handled by core. **/
     const SKIP_TABLES = [
-        search::TABLE,
+        db_search::TABLE,
         'search_simpledb_index',
     ];
 
     /**
      * Get columns to search for in a table.
      *
-     * @param search $search persistent record
+     * @param db_search $search persistent record
      * @param string $table The table to search.
      * @param array $searchingcolumns The columns to search.
      * @return array The columns to search.
      */
-    private static function get_columns(search $search, string $table, array $searchingcolumns = []): array {
+    private static function get_columns(db_search $search, string $table, array $searchingcolumns = []): array {
         global $DB;
 
         // Skip tables that are in the skip list.
@@ -120,12 +120,12 @@ class helper {
     /**
      * Build searching list
      *
-     * @param search $search persistent record
+     * @param db_search $search persistent record
      * @param array $tablerowcounts Estimated table row counts, used to estimate the total number of data entires.
      *
      * @return array the estimated total number of data entries to search and the actual columns to search.
      */
-    public static function build_searching_list(search $search, array $tablerowcounts = []): array {
+    public static function build_searching_list(db_search $search, array $tablerowcounts = []): array {
         global $DB;
 
         // Build a list of tables and columns to search.
@@ -251,12 +251,12 @@ class helper {
     /**
      * Builds sql for a search on a table and column.
      *
-     * @param search $search persistent record.
+     * @param db_search $search persistent record.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
      * @return array [$sql, $params]
      */
-    private static function build_search_query(search $search, string $table, database_column_info $column): array {
+    private static function build_search_query(db_search $search, string $table, database_column_info $column): array {
         global $DB;
 
         // Check if column meta type can be searched.
@@ -306,13 +306,13 @@ class helper {
     /**
      * Perform a search on a table and column.
      *
-     * @param search $search persistent record.
+     * @param db_search $search persistent record.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
      * @param resource|null $stream The resource to write the results to. If null, the results are returned.
      * @return array
      */
-    public static function search_column(search $search, string $table, database_column_info $column, $stream = null): array {
+    public static function search_column(db_search $search, string $table, database_column_info $column, $stream = null): array {
         global $DB;
 
         $results = [];
@@ -428,11 +428,11 @@ class helper {
     /**
      * Searches the DB using a persistent record.
      *
-     * @param search $search persistent record
+     * @param db_search $search persistent record
      * @param string $output path
      * @return void
      */
-    public static function search_db(search $search, string $output = ''): void {
+    public static function search_db(db_search $search, string $output = ''): void {
         // Create temp output directory.
         $filename = search::get_filename($search->to_record());
         if (!$output) {

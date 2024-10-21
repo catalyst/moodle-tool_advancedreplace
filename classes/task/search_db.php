@@ -35,7 +35,7 @@ class search_db extends \core\task\adhoc_task {
             return;
         }
 
-        $record = new \tool_advancedreplace\search($data->searchid);
+        $record = new \tool_advancedreplace\db_search($data->searchid);
         if (empty($record)) {
             return;
         }
