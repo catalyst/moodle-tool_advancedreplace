@@ -33,7 +33,7 @@ require_once("$CFG->libdir/formslib.php");
  */
 class search extends \core\form\persistent {
     /** @var string Persistent class name. */
-    protected static $persistentclass = 'tool_advancedreplace\\search';
+    protected static $persistentclass = 'tool_advancedreplace\\db_search';
 
     /**
      * Form definition

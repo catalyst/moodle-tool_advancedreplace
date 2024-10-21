@@ -117,7 +117,7 @@ $data->name = ucfirst(pathinfo($output, PATHINFO_FILENAME));
 $data->origin = 'cli';
 
 // Run search.
-$search = new \tool_advancedreplace\search(0, $data);
+$search = new \tool_advancedreplace\db_search(0, $data);
 $search->create();
 helper::search_db($search, $output);
 exit(0);

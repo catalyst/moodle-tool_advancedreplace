@@ -32,7 +32,7 @@ class search_table extends \table_sql {
      *
      * @var string
      */
-    protected $dbclass = search::class;
+    protected $dbclass = db_search::class;
 
     /**
      * Part of the url used to interact with these searches.
