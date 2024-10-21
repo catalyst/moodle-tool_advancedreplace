@@ -135,11 +135,12 @@ class file_search {
         $filenames = trim($record->get('filenames'));
         $skipfilenames = trim($record->get('skipfilenames'));
         $skipareas = trim($record->get('skipareas'));
-        $filename = \tool_advancedreplace\files::get_filename($record->to_record());
+        $filename = $record->get_filename();
         // Create temp output directory.
         if (!$output) {
-            $dir = make_request_directory();
-            $output = $dir . '/' . $filename;
+            $tempfile = true;
+            $dir = make_temp_directory('tool_advancedreplace');
+            $output = $dir . '/' . $record->get_temp_filename();
         }
 
         // Start output.
@@ -198,6 +199,11 @@ class file_search {
                 'filename'  => $filename,
             ];
             $fs->create_file_from_pathname($fileinfo, $output);
+        }
+
+        // Remove temp file.
+        if (isset($tempfile) && file_exists($output)) {
+            @unlink($output);
         }
     }
 

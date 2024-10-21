@@ -434,10 +434,10 @@ class helper {
      */
     public static function search_db(db_search $search, string $output = ''): void {
         // Create temp output directory.
-        $filename = search::get_filename($search->to_record());
         if (!$output) {
-            $dir = make_request_directory();
-            $output = $dir . '/' . $filename;
+            $tempfile = true;
+            $dir = make_temp_directory('tool_advancedreplace');
+            $output = $dir . '/' . $search->get_temp_filename();
         }
 
         // Grab log settings, 0 is a valid setting so set false to a sensible default..
@@ -520,9 +520,14 @@ class helper {
                 'filearea'  => 'search',
                 'itemid'    => $search->get('id'),
                 'filepath'  => '/',
-                'filename'  => $filename,
+                'filename'  => $search->get_filename(),
             ];
             $fs->create_file_from_pathname($fileinfo, $output);
+        }
+
+        // Remove temp file.
+        if (isset($tempfile) && file_exists($output)) {
+            @unlink($output);
         }
     }
 

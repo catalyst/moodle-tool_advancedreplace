@@ -264,22 +264,21 @@ class search_table extends \table_sql {
     protected function get_download_link($record): string {
         global $OUTPUT;
 
+        // Load the persistent to get records.
+        $search = new $this->dbclass(0, $record);
+        $file = $search->get_file();
+
         // Make sure search is finished and we have a file.
-        if (empty($record->timeend) || !$file = $this->dbclass::get_file($record)) {
-            return '';
+        if (empty($record->timeend) || !$file) {
+            // If we have any matches, we may still be able to provide a temporary file.
+            if (!$record->matches || !file_exists($search->get_temp_filepath())) {
+                return '';
+            }
         }
 
-        $fileurl = \moodle_url::make_pluginfile_url(
-            $file->get_contextid(),
-            $file->get_component(),
-            $file->get_filearea(),
-            $file->get_itemid(),
-            $file->get_filepath(),
-            $file->get_filename()
-        )->out();
-
-        $filename = $file->get_filename();
-        $filesize = display_size($file->get_filesize());
+        $fileurl = $search->get_pluginfile_url(!$file);
+        $filename = $search->get_filename(!$file);
+        $filesize = $file ? display_size($file->get_filesize()) : get_string('statusna');
 
         $download = \html_writer::link($fileurl, $filename);
         return "$download ($filesize)";
