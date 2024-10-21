@@ -157,7 +157,7 @@ class file_search {
         ];
         fputcsv($this->stream, $columnheaders);
         
-        $pattern = '/' . $pattern . '/i';
+        $pattern = '%' . $this->parameters->pattern . '%i';
         
         [$whereclause, $params] =
         $this->make_where_clause($this->parameters);
@@ -170,7 +170,7 @@ class file_search {
         
         $fileset = $DB->get_recordset_select('files', $whereclause, $params, 'component, filearea, contextid, itemid' );
         foreach ($fileset as $filerecord) {
-            $matchcount += $this->search_file($filerecord);
+            $matchcount += self::search_file($filerecord, $pattern, $this->stream);
             $filecount ++;
             $time = time();
             $percent = round(100 * $filecount / $totalfiles, 2);
@@ -277,7 +277,7 @@ class file_search {
                 // Filter by file name.
                 if ( ! emtpy($mimepattern)) {
                     if ( ! preg_match($namepattern, $stat['name'])) {
-                        print "ignoring subfile $stat['name']\n";
+                        print ("ignoring subfile {$stat['name']}\n");
                         continue;
                     }
                 }
@@ -312,7 +312,7 @@ class file_search {
     * @param resource $stream  The open csv file to receive the matches.
     * @return int $matchcount The number of matches found.
     */
-    public static function search_file(object $filerecord, string $pattern, $stream): int {
+    public static function search_file(object $filerecord, $stream): int {
         static $fs = null;
         if (empty($fs)) {
             $fs = get_file_storage();

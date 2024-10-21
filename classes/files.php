@@ -39,6 +39,11 @@ class files extends \core\persistent {
         'filenames',
         'skipfilenames',
         'skipareas',
+        'openzips',
+        'zipfilenames',
+        'skipzipfilenames',
+        'zipmimetypes',
+        'skipzipmimetypes',
     ];
 
     /**
@@ -84,6 +89,26 @@ class files extends \core\persistent {
                 'default' => '',
             ],
             'skipareas' => [
+                'type' => PARAM_RAW,
+                'default' => '',
+            ],
+            'openzips' => [
+                'type' => PARAM_BOOL,
+                'default' => 0,
+            ],
+            'zipfilenames' => [
+                'type' => PARAM_RAW,
+                'default' => '',
+            ],
+            'skipzipfilenames' => [
+                'type' => PARAM_RAW,
+                'default' => '',
+            ],
+            'zipmimetypes' => [
+                'type' => PARAM_RAW,
+                'default' => '',
+            ],
+            'skipzipmimetypes' => [
                 'type' => PARAM_RAW,
                 'default' => '',
             ],

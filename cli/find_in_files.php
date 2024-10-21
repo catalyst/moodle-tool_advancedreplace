@@ -34,7 +34,6 @@ $help =
     "Search for text in moodle files.
 
 Options:
---search=STRING                  Required if --regex-match is not specified. String to search for.
 --regex-match=STRING             Required if --search is not specified. Use regular expression to match the search string.
 --output=FILE                    Required output file. If not specified, output to stdout.
 --components=componentname:areaname    Components and areas to search. Separate multiple components/areas with a comma.
@@ -52,6 +51,11 @@ Options:
 --filenames=filename            Cooma-separated list of file names to be searched.
 --skip-filenames=filename       Comma-separated list of file names to be omitted from the search.
 --skip-areas=areaname        Areas to skip. Separate multiple areas with a comma.
+--openzips=
+--zip-filenames=regex
+--skip-zip-filenames=regex
+--zip-mimetypes=regex
+--skip-zip-mimetypes=regex
                                  Example:
                                     --skip-areas=draft,export
 -h, --help                       Print out this help.
@@ -72,6 +76,11 @@ list($options, $unrecognized) = cli_get_params(
         'filenames'     => '',
         'skip-filenames' => '',
         'skip-areas'    => '',
+        'open-zips'     => '1',
+        'zip-filenames' => '',
+        'skip-zip-filenames' => '',
+        'zip-mimetypes' => '',
+        'skip-zip-mimetypes' => '',
         'help'          => false,
     ],
     [
@@ -104,6 +113,11 @@ try {
     $data->filenames = validate_param($options['filenames'], PARAM_RAW);
     $data->skipfilenames = validate_param($options['skip-filenames'], PARAM_RAW);
     $data->skipareas = validate_param($options['skip-areas'], PARAM_RAW);
+    $data->openzips = validate_param($options['open-zips'], PARAM_RAW);
+    $data->zipfilenames = validate_param($options['zip-filenames'], PARAM_RAW);
+    $data->skipzipfilenames = validate_param($options['skip-zip-filenames'], PARAM_RAW);
+    $data->zipmimetypes = validate_param($options['zip-mimetypes'], PARAM_RAW);
+    $data->skipzipmimetypes = validate_param($options['skip-zip-mimetypes'], PARAM_RAW);
     $output = validate_param($options['output'], PARAM_RAW);
 } catch (invalid_parameter_exception $e) {
     cli_error(get_string('errorinvalidparam', 'tool_advancedreplace'));
@@ -117,5 +131,5 @@ $data->origin = 'cli';
 // Run search.
 $files = new \tool_advancedreplace\files(0, $data);
 $files->create();
-file_search::files($files, $output);
+$searcher = new file_search($files, $output);
 exit(0);
