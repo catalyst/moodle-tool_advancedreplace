@@ -101,6 +101,19 @@ class files extends \core\form\persistent {
         $mform->setDefault('skipareas', '');
         $mform->addElement('static', 'skipareas_help', '', get_string( 'field_skipareas_help', self::PLUGIN));
 
+        $mform->addElement('checkbox', 'openzips', get_string('field_openzips', self::PLUGIN));
+        $mform->addHelpButton('openzips', 'field_openzips', 'tool_advancedreplace');
+
+        $mform->addElement('textarea', 'zipfilenames', get_string("field_zipfilenames", self::PLUGIN), $textareasize);
+        $mform->setType('zipfilenames', PARAM_RAW);
+        $mform->setDefault('zipfilenames', '');
+        $mform->addElement('static', 'zipfilenames_help', '', get_string( 'field_zipfilenames_help', self::PLUGIN));
+
+        $mform->addElement('textarea', 'skipzipfilenames', get_string("field_skipzipfilenames", self::PLUGIN), $textareasize);
+        $mform->setType('skipzipfilenames', PARAM_RAW);
+        $mform->setDefault('skipzipfilenames', '');
+        $mform->addElement('static', 'skipzipfilenames_help', '', get_string( 'field_skipzipfilenames_help', self::PLUGIN));
+
         $this->add_action_buttons(true, get_string('search'));
     }
 }

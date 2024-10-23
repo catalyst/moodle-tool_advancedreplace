@@ -44,6 +44,9 @@
         <FIELD NAME="filenames" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="skipfilenames" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="skipareas" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="openzips" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="zipfilenames" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="skipzipfilenames" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="origin" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timestart" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timeend" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
