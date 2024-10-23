@@ -29,61 +29,68 @@ require_once($CFG->libdir.'/filelib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class file_search {
+    /** @var int Column of csv output to hold the id of the file. */
+    const CSV_FILEID = 0;
+    /** @var int Column of csv output to hold the course id.  */
+    const CSV_COURSEID = 1;
+    /** @var int Column of csv output to hold the course shortname.  */
+    const CSV_COURSESNM = 2;
+
     /**
     * 1st column of csv output - the contextid column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_CONTEXTID = 0;
+    const CSV_CONTEXTID = 3;
 
     /**
     * 2nd column of csv output - the component column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_COMPONENT = 1;
+    const CSV_COMPONENT = 4;
 
     /**
     * 3rd column of csv output - the filearea column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_FILEAREA  = 2;
+    const CSV_FILEAREA  = 5;
 
     /**
     * 4th column of csv output - the itemid column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_ITEMID    = 3;
+    const CSV_ITEMID    = 6;
 
     /**
     * 5th column of csv output - the filepath column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_FILEPATH  = 4;
+    const CSV_FILEPATH  = 7;
 
     /**
     * 6th column of csv output - the filename column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_FILENAME  = 5;
+    const CSV_FILENAME  = 8;
 
     /**
     * 7th column of csv output - the mimetype column of the mdl_files table.
     *
     * @var int
     */
-    const CSV_MIMETYPE  = 6;
+    const CSV_MIMETYPE  = 9;
 
     /**
     * 8th column of csv output - the strategy used to search the file.
     *
     * @var int
     */
-    const CSV_STRATEGY  = 7;
+    const CSV_STRATEGY  = 10;
 
     /**
     * 9th column of csv output - some internal information, depending on the strategy.
@@ -92,28 +99,28 @@ class file_search {
     *
     * @var int
     */
-    const CSV_INTERNAL  = 8;
+    const CSV_INTERNAL  = 11;
 
     /**
     * 12th column of csv file - the replacement text.
     *
     * @var int
     */
-    const CSV_REPLACE   = 9;
+    const CSV_REPLACE   = 12;
 
     /**
     * 10th column of csv output - the offset of the match within the file.
     *
     * @var int
     */
-    const CSV_OFFSET    = 10;
+    const CSV_OFFSET    = 13;
 
     /**
     * 11th column of csv output - the text that was matched.
     *
     * @var int
     */
-    const CSV_MATCH     = 11;
+    const CSV_MATCH     = 14;
 
     /**
      * Searches the DB using a persistent record.
@@ -151,7 +158,7 @@ class file_search {
 
         $stream = fopen($output, 'w');
         $columnheaders = [
-            'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
+            'fileid', 'courseid', 'shortname', 'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
             'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
         ];
         fputcsv($stream, $columnheaders);
@@ -163,8 +170,21 @@ class file_search {
         $matchcount = 0;
         $filecount = 0;
         $totalfiles = $DB->count_records_select('files', $whereclause, $params);
-
-        $fileset = $DB->get_recordset_select('files', $whereclause, $params, 'component, filearea, contextid, itemid' );
+        $sql = "
+            SELECT
+                f.id, f.component, f.filearea, f.contextid, f.itemid, f.filename, f.filepath, f.mimetype,
+                c.id AS courseid, c.shortname
+            FROM {files} f
+            JOIN {context} ctx ON ctx.id = f.contextid
+            LEFT JOIN {course_modules} cm ON cm.id = ctx.instanceid AND ctx.contextlevel = 70
+            LEFT JOIN {course} c ON c.id = CASE
+                                               WHEN ctx.contextlevel = 50 THEN ctx.instanceid
+                                               WHEN ctx.contextlevel = 70 THEN cm.course
+                                           END
+            WHERE $whereclause
+            ORDER BY f.component, f.filearea, f.contextid, f.itemid
+        ";
+        $fileset = $DB->get_recordset_sql($sql, $params);
         foreach ($fileset as $filerecord) {
             $matchcount += self::search_file($filerecord, $criteria, $stream);
             $filecount ++;
@@ -321,6 +341,9 @@ class file_search {
         );
 
         $csv = [
+            self::CSV_FILEID    => $filerecord->id,
+            self::CSV_COURSEID  => $filerecord->courseid,
+            self::CSV_COURSESNM => $filerecord->shortname,
             self::CSV_CONTEXTID => $filerecord->contextid,
             self::CSV_COMPONENT => $filerecord->component,
             self::CSV_FILEAREA  => $filerecord->filearea,
