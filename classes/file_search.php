@@ -287,7 +287,7 @@ class file_search {
                 }
 
                 $csv[self::CSV_INTERNAL] = $stat['name'];
-                $matchcount += self::grep_content($csv, $filecontents, $criteria, $stream);
+                $matchcount += self::grep_content($csv, $zip->getFromIndex($i), $criteria, $stream);
             }
             $zip->close();
         }
