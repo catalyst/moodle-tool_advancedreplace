@@ -39,6 +39,9 @@ class files extends search {
         'filenames',
         'skipfilenames',
         'skipareas',
+        'openzips',
+        'zipfilenames',
+        'skipzipfilenames',
     ];
 
     /** @var string File area for output files */
@@ -90,6 +93,18 @@ class files extends search {
                 'default' => '',
             ],
             'skipareas' => [
+                'type' => PARAM_RAW,
+                'default' => '',
+            ],
+            'openzips' => [
+                'type' => PARAM_BOOL,
+                'default' => 0,
+            ],
+            'zipfilenames' => [
+                'type' => PARAM_RAW,
+                'default' => '',
+            ],
+            'skipzipfilenames' => [
                 'type' => PARAM_RAW,
                 'default' => '',
             ],

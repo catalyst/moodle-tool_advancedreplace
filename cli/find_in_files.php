@@ -34,27 +34,29 @@ $help =
     "Search for text in moodle files.
 
 Options:
---search=STRING                  Required if --regex-match is not specified. String to search for.
---regex-match=STRING             Required if --search is not specified. Use regular expression to match the search string.
---output=FILE                    Required output file. If not specified, output to stdout.
+--regex-match=STRING             Required: Regular expression to find in the files.
+--output=FILE                    Output file name. If not specified, output to stdout.
 --components=componentname:areaname    Components and areas to search. Separate multiple components/areas with a comma.
                                  If not specified, search all tables and columns.
                                  If specify table only, search all columns in the table.
                                  Example:
-                                    --components=core_h5p:content
-                                    --components=core_h5p,assign_submission:submission
---skip-components=componentname   Components to skip. Separate multiple components with a comma.
-                                 Example:
+                                     --components=core_h5p:content
+                                     --components=core_h5p,assign_submission:submission
+--skip-components=componentname  Components to skip. Separate multiple components with a comma.
+                                    Example:
                                     --skip-components=core_h5p,assign_submission
 --mimetypes=mimetype,mimetype   Mimetypes to be searched. Separate multipler type with commas.
                                 If empty, all mimetypes will be considred.
 --skip-mimetypes=mimetype,mimetype Mimetypes to be skipped.
 --filenames=filename            Cooma-separated list of file names to be searched.
 --skip-filenames=filename       Comma-separated list of file names to be omitted from the search.
---skip-areas=areaname        Areas to skip. Separate multiple areas with a comma.
-                                 Example:
-                                    --skip-areas=draft,export
--h, --help                       Print out this help.
+--skip-areas=areaname           Areas to skip. Separate multiple areas with a comma.
+--openzips                      Open zip files, and search the files inside.
+--zip-filenames=regex           Regular expression to match filenames inside the zip.
+                                    eg --zip-filenames='/content.json$'
+--skip-zip-filenames=regex      Regular expression to reject filenames inside the zip.
+                                    eg --skip-zip-filenames='\.(png|jpg)$'
+-h, --help                      Print out this help.
 
 Example:
 \$ php find_in_files.php --regex-match=thelostsoul\\d+ --output=/tmp/result.csv
@@ -72,6 +74,9 @@ list($options, $unrecognized) = cli_get_params(
         'filenames'     => '',
         'skip-filenames' => '',
         'skip-areas'    => '',
+        'open-zips'     => false,
+        'zip-filenames' => '',
+        'skip-zip-filenames' => '',
         'help'          => false,
     ],
     [
@@ -104,6 +109,9 @@ try {
     $data->filenames = validate_param($options['filenames'], PARAM_RAW);
     $data->skipfilenames = validate_param($options['skip-filenames'], PARAM_RAW);
     $data->skipareas = validate_param($options['skip-areas'], PARAM_RAW);
+    $data->openzips = validate_param($options['open-zips'], PARAM_RAW);
+    $data->zipfilenames = validate_param($options['zip-filenames'], PARAM_RAW);
+    $data->skipzipfilenames = validate_param($options['skip-zip-filenames'], PARAM_RAW);
     $output = validate_param($options['output'], PARAM_RAW);
 } catch (invalid_parameter_exception $e) {
     cli_error(get_string('errorinvalidparam', 'tool_advancedreplace'));

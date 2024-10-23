@@ -95,25 +95,25 @@ class file_search {
     const CSV_INTERNAL  = 8;
 
     /**
+    * 12th column of csv file - the replacement text.
+    *
+    * @var int
+    */
+    const CSV_REPLACE   = 9;
+
+    /**
     * 10th column of csv output - the offset of the match within the file.
     *
     * @var int
     */
-    const CSV_OFFSET    = 9;
+    const CSV_OFFSET    = 10;
 
     /**
     * 11th column of csv output - the text that was matched.
     *
     * @var int
     */
-    const CSV_MATCH     = 10;
-
-    /**
-    * 12th column of csv file - the replacement text.
-    *
-    * @var int
-    */
-    const CSV_REPLACE   = 11;
+    const CSV_MATCH     = 11;
 
     /**
      * Searches the DB using a persistent record.
@@ -122,19 +122,25 @@ class file_search {
      * @param string $output path
      * @return void
      */
-    public static function files(\tool_advancedreplace\files $record, string $output = ''): void {
+    public static function files(files $record, string $output = '') {
         global $DB;
         \core_php_time_limit::raise();
         raise_memory_limit(MEMORY_HUGE);
+        $criteria = (object) [
+            'pattern' => '%' . trim($record->get('pattern')) . '%i',
+            'components' => trim($record->get('components')),
+            'skipcomponents' => trim($record->get('skipcomponents')),
+            'mimetypes' => trim($record->get('mimetypes')),
+            'skipmimetypes' => trim($record->get('skipmimetypes')),
+            'filenames' => trim($record->get('filenames')),
+            'skipfilenames' => trim($record->get('skipfilenames')),
+            'skipareas' => trim($record->get('skipareas')),
+            'openzips' => trim($record->get('openzips')),
+            'zipfilenames' => trim($record->get('zipfilenames')),
+            'skipzipfilenames' => trim($record->get('skipzipfilenames')),
+        ];
+
         $id = $record->get('id');
-        $pattern = trim($record->get('pattern'));
-        $components = trim($record->get('components'));
-        $skipcomponents = trim($record->get('skipcomponents'));
-        $mimetypes = trim($record->get('mimetypes'));
-        $skipmimetypes = trim($record->get('skipmimetypes'));
-        $filenames = trim($record->get('filenames'));
-        $skipfilenames = trim($record->get('skipfilenames'));
-        $skipareas = trim($record->get('skipareas'));
         $filename = $record->get_filename();
         // Create temp output directory.
         if (!$output) {
@@ -143,20 +149,14 @@ class file_search {
             $output = $dir . '/' . $record->get_temp_filename();
         }
 
-        // Start output.
         $stream = fopen($output, 'w');
-
         $columnheaders = [
             'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
-            'mimetype', 'strategy', 'internal', 'offset', 'match', 'replace',
+            'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
         ];
         fputcsv($stream, $columnheaders);
 
-        $pattern = '/' . $pattern . '/i';
-
-        [$whereclause, $params] =
-        self::make_where_clause($components, $skipcomponents, $skipareas,
-        $mimetypes, $skipmimetypes, $filenames, $skipfilenames);
+        [$whereclause, $params] = self::make_where_clause($criteria);
         $record->set('timestart', time());
         $updatetime = time();
         $updatepercent = 0;
@@ -166,7 +166,7 @@ class file_search {
 
         $fileset = $DB->get_recordset_select('files', $whereclause, $params, 'component, filearea, contextid, itemid' );
         foreach ($fileset as $filerecord) {
-            $matchcount += self::search_file($filerecord, $pattern, $stream);
+            $matchcount += self::search_file($filerecord, $criteria, $stream);
             $filecount ++;
             $time = time();
             $percent = round(100 * $filecount / $totalfiles, 2);
@@ -213,14 +213,14 @@ class file_search {
      * grep_file_content
      *
      * @param array $csv  Some columns to be output in the csv file.
-     * @param string $content The actual bytes of the zip file.
-     * @param string $pattern The regular expression to be matched.
+     * @param string $filecontents The actual bytes of the zip file.
+     * @param object $criteria The regular expression to be matched.
      * @param resource $stream The handle for the output file.
      * @return int $matchcount The number of matches found.
      */
-    public static function grep_content($csv, $content, $pattern, $stream): int {
+    public static function grep_content($csv, $filecontents, $criteria, $stream): int {
         $matchcount = 0;
-        if (preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+        if (preg_match_all($criteria->pattern, $filecontents, $matches, PREG_OFFSET_CAPTURE)) {
             foreach ($matches[0] as $index => $match) {
                 $matchcount ++;
                 $group = 0;
@@ -241,33 +241,53 @@ class file_search {
      * Search for the pattern in (the subfiles of ) a zip file.
      *
      * @param array $csv Some columns to be output in the csv file.
-     * @param string $content The actual bytes of the zip file.
-     * @param string $pattern The regular expression to be matched.
+     * @param string $filecontents The actual bytes of the zip file.
+     * @param object $criteria The searching criteria.
      * @param resource $stream The handle for the output file.
      * @return int $matchcount The number of matches found.
      */
-    public static function unzip_content($csv, $content, $pattern, $stream): int {
+    public static function unzip_content(array $csv, string $filecontents, object $criteria, $stream): int {
         static $finfo = null;
         if ($finfo == null) {
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
         }
 
-        if (strlen($content) == 0) {
+        if (strlen($filecontents) == 0) {
             // The file is empty. There will be no match.
             return 0;
         }
         $tmpfile = tempnam(sys_get_temp_dir(), 'zip');
-        file_put_contents($tmpfile, $content);
+        file_put_contents($tmpfile, $filecontents);
         $zip = new \ZipArchive();
         $matchcount = 0;
+        if (! empty ($criteria->zipfilenames)) {
+            $namepattern = '%' . $criteria->zipfilenames . '%i';
+        } else {
+            $namepattern = '';
+        }
+        if (! empty ($criteria->skipzipfilenames)) {
+            $skipnamepattern = '%' . $criteria->skipzipfilenames . '%i';
+        } else {
+            $skipnamepattern = '';
+        }
         if ($zip->open($tmpfile) === true) {
-            // Extract the contents or work with the ZIP file here.
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $stat = $zip->statIndex($i);
-                $filecontents = $zip->getFromIndex($i);
-                $mimetype = $finfo->buffer($filecontents);
+
+                // Filter by file name.
+                if ( ! empty($namepattern)) {
+                    if ( ! preg_match($namepattern, $stat['name'])) {
+                        continue;
+                    }
+                }
+                if ( ! empty($skipnamepattern)) {
+                    if ( preg_match($skipnamepattern, $stat['name'])) {
+                        continue;
+                    }
+                }
+
                 $csv[self::CSV_INTERNAL] = $stat['name'];
-                $matchcount += self::grep_content($csv, $filecontents, $pattern, $stream);
+                $matchcount += self::grep_content($csv, $filecontents, $criteria, $stream);
             }
             $zip->close();
         }
@@ -282,11 +302,11 @@ class file_search {
      * Report the matches into the stream.
      *
      * @param object $filerecord  A row from mdl_files table, indicating the file to be searched.
-     * @param string $pattern A regular expression to search for.
+     * @param object $criteria A regular expression to search for.
      * @param resource $stream  The open csv file to receive the matches.
      * @return int $matchcount The number of matches found.
      */
-    public static function search_file(object $filerecord, string $pattern, $stream): int {
+    public static function search_file(object $filerecord, object $criteria, $stream): int {
         static $fs = null;
         if (empty($fs)) {
             $fs = get_file_storage();
@@ -308,47 +328,53 @@ class file_search {
             self::CSV_FILEPATH  => $filerecord->filepath,
             self::CSV_FILENAME  => $filerecord->filename,
             self::CSV_MIMETYPE  => $filerecord->mimetype,
-
         ];
         switch ($filerecord->mimetype) {
             case 'application/zip.h5p':
-                $csv[self::CSV_STRATEGY] = 'zip';
-                $matchcount = self::unzip_content($csv, $file->get_content(), $pattern, $stream);
-                break;
+            case 'application/zip':
+                if (empty($criteria->openzips)) {
+                    $matchcount = 0;
+                } else {
+                    $csv[self::CSV_STRATEGY] = 'zip';
+                    $matchcount = self::unzip_content($csv, $file->get_content(), $criteria, $stream);
+                }
+                    break;
             default:
                 $csv[self::CSV_STRATEGY] = 'plain';
                 $csv[self::CSV_INTERNAL] = '';
-                $matchcount = self::grep_content($csv, $file->get_content(), $pattern, $stream);
-                break;
+                $matchcount = self::grep_content($csv, $file->get_content(), $criteria, $stream);
+                    break;
         }
-            return $matchcount;
+                return $matchcount;
     }
 
-        /**
-         * Make a where clause to implement the filtering criteria.
-         *
-         * @param string $components Comma-seperated  component:area pairs.
-         * @param string $skipcomponents Comma-separated components to be omitted.
-         * @param string $skipareas Comma-separated areas to be omitted.
-         * @param string $mimetypes Comma-separated mimetypes to be searched.
-         * @param string $skipmimetypes Comma-separated mimetypes to be omitted.
-         * @param string $filenames Comma-separated filenames to be searched.
-         * @param string $skipfilenames Comma-separated filenames to be omitted.
-         * @return string $whereclause A where clause ready for SQL.
-         * @return array $params An array of parameters to go with the where clause.
-         */
-    public static function make_where_clause($components, $skipcomponents, $skipareas,
-        $mimetypes, $skipmimetypes, $filenames, $skipfilenames) {
+            /**
+             * Make a where clause to implement the filtering criteria.
+             *
+             * The search parameters are:
+             * ->components Comma-seperated  component:area pairs.
+             * ->skipcomponents Comma-separated components to be omitted.
+             * ->skipareas Comma-separated areas to be omitted.
+             * ->mimetypes Comma-separated mimetypes to be searched.
+             * ->skipmimetypes Comma-separated mimetypes to be omitted.
+             * ->filenames Comma-separated filenames to be searched.
+             * ->skipfilenames Comma-separated filenames to be omitted.
+             *
+             * @param object $criteria The search criteria in an object.
+             * @return string $whereclause A where clause ready for SQL.
+             * @return array $params An array of parameters to go with the where clause.
+             */
+    public static function make_where_clause(object $criteria): array {
         $params = [];
         $paramnumber = 0;
         $whereclause = '';
         $and = ''; // For first one.
 
-        if ( ! empty($components)) {
+        if ( ! empty($criteria->components)) {
             $whereclause .= $and . '( ';
             $and = ' AND '; // For next one.
             $or = ''; // For first one.
-            foreach (explode(',', $components) as $specification) {
+            foreach (explode(',', $criteria->components) as $specification) {
                 $subspecifications = explode(':', $specification);
                 $paramnumber ++;
                 $whereclause .= $or . "(component=:param{$paramnumber}";
@@ -364,11 +390,11 @@ class file_search {
             $whereclause .= ' )';
         }
 
-        if ( ! empty($mimetypes)) {
+        if ( ! empty($criteria->mimetypes)) {
             $whereclause .= $and . '( ';
             $and = ' AND '; // For next one.
             $or = ''; // For first time.
-            foreach (explode(',', $mimetypes) as $mimetype) {
+            foreach (explode(',', $criteria->mimetypes) as $mimetype) {
                 $paramnumber ++;
                 $whereclause .= $or ."(mimetype=:param{$paramnumber})";
                 $params["param{$paramnumber}"] = trim($mimetype);
@@ -377,11 +403,11 @@ class file_search {
             $whereclause .= ' )';
         }
 
-        if ( ! empty($filenames)) {
+        if ( ! empty($criteria->filenames)) {
             $whereclause .= $and . '( ';
             $and = ' AND '; // For next one.
             $or = ''; // For first time.
-            foreach (explode(',', $filenames) as $filename) {
+            foreach (explode(',', $criteria->filenames) as $filename) {
                 $paramnumber ++;
                 $whereclause .= $or . "(filename=:param{$paramnumber})";
                 $or = ' OR '; // For next one.
@@ -390,8 +416,8 @@ class file_search {
             $whereclause .= ' )';
         }
 
-        if ( ! empty($skipcomponents)) {
-            foreach (explode(',', $skipcomponents) as $component) {
+        if ( ! empty($criteria->skipcomponents)) {
+            foreach (explode(',', $criteria->skipcomponents) as $component) {
                 $paramnumber ++;
                 $params["param{$paramnumber}"] = trim($component);
                 $whereclause .= $and . "(component!=:param{$paramnumber})";
@@ -399,8 +425,8 @@ class file_search {
             }
         }
 
-        if ( ! empty($skipmimetypes)) {
-            foreach (explode(',', $skipmimetypes) as $mimetype) {
+        if ( ! empty($criteria->skipmimetypes)) {
+            foreach (explode(',', $criteria->skipmimetypes) as $mimetype) {
                 $paramnumber ++;
                 $params["param{$paramnumber}"] = trim($mimetype);
                 $whereclause .= " AND (mimetype!=:param{$paramnumber})";
@@ -408,8 +434,8 @@ class file_search {
             }
         }
 
-        if ( ! empty($skipfilenames)) {
-            foreach (explode(',', $skipfilenames) as $filename) {
+        if ( ! empty($criteria->skipfilenames)) {
+            foreach (explode(',', $criteria->skipfilenames) as $filename) {
                 $paramnumber ++;
                 $params["param{$paramnumber}"] = trim($filename);
                 $whereclause .= $and . "(filename!=:param{$paramnumber})";
@@ -417,8 +443,8 @@ class file_search {
             }
         }
 
-        if ( ! empty($skipareas)) {
-            foreach (explode(',', $skipareas) as $area) {
+        if ( ! empty($criteria->skipareas)) {
+            foreach (explode(',', $criteria->skipareas) as $area) {
                 $paramnumber ++;
                 $params["param{$paramnumber}"] = trim($area);
                 $whereclause .= $and . "(filearea!=:param{$paramnumber})";
@@ -429,4 +455,6 @@ class file_search {
         return [$whereclause, $params];
     }
 }
+
+
 

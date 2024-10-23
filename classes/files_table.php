@@ -62,6 +62,9 @@ class files_table extends search_table {
         'filenames',
         'skipfilenames',
         'skipareas',
+        'openzips',
+        'zipfilenames',
+        'skipzipfilenames',
     ];
 
 }
