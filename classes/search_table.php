@@ -174,8 +174,18 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_progress($record): string {
-        $progress = get_string('percents', 'moodle', round($record->progress, 2));
-        return $this->format_eta($record, $progress);
+        $progress = get_string('percents', 'moodle', round($record->progress, 1));
+        $badge = 'badge badge-secondary';
+        if ($record->progress == 100 && !empty($record->timeend)) {
+            // Finished. Check both progress and time end for success in case progress is rounded up.
+            $badge = 'badge badge-success';
+        } else if (!empty($record->timestart) || $record->progress > 0) {
+            // In progress. Having timestart should be enough, but the extra check on progress won't hurt.
+            $badge = 'badge badge-warning';
+        }
+
+        $attributes = $this->get_common_attributes($record);
+        return \html_writer::span($progress, $badge, $attributes);
     }
 
     /**
@@ -188,7 +198,7 @@ class search_table extends \table_sql {
         if (empty($record->timestart)) {
             return '';
         }
-        $format = get_string('strftimedatetime', 'langconfig');
+        $format = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
         return userdate($record->timestart, $format);
     }
 
@@ -209,7 +219,9 @@ class search_table extends \table_sql {
             // The format_time function returns 'now' when the difference is exactly 0.
             return '0 ' . get_string('secs', 'moodle');
         }
-        return $this->format_eta($record, format_time($duration));
+
+        $attributes = $this->get_common_attributes($record);
+        return \html_writer::span(format_time($duration), '', $attributes);
     }
 
     /**
@@ -227,7 +239,7 @@ class search_table extends \table_sql {
                 $options[] = in_array($option, $bool) ? $name : $name . ': ' . $record->$option;
             }
         }
-        return implode(',' . PHP_EOL, $options);
+        return format_text(implode(PHP_EOL, $options));
     }
 
     /**
@@ -317,25 +329,21 @@ class search_table extends \table_sql {
     protected function get_copy_link($record): string {
         global $OUTPUT;
 
-        if (empty($record->timeend)) {
-            return '';
-        }
         $url = new \moodle_url('/admin/tool/advancedreplace/' . $this->urlfragment, ['copy' => $record->id]);
         $copyicon = $OUTPUT->render(new \pix_icon('t/copy', get_string('copyoptions', 'tool_advancedreplace')));
         return \html_writer::link($url, $copyicon, ['class' => 'action-icon']);
     }
 
     /**
-     * Adds ETA to a string
+     * Calculates the ETA for a search.
      * @param stdClass $record
-     * @param string $string text to format
-     * @return string formatted text
+     * @return string ETA, or blank string
      */
-    protected function format_eta($record, $string): string {
+    protected function get_eta($record): string {
         global $OUTPUT;
 
         if (!empty($record->timeend) || empty($record->progress) || $record->progress < 5) {
-            return $string;
+            return '';
         }
 
         // Calculate ETA.
@@ -344,7 +352,20 @@ class search_table extends \table_sql {
         $remaining = $record->timestart + $estduration;
 
         $format = get_string('strftimedatetime', 'langconfig');
-        $eta = get_string('eta', 'tool_advancedreplace', userdate($remaining, $format));
-        return \html_writer::span($string, '', ['title' => $eta]);
+        return get_string('eta', 'tool_advancedreplace', userdate($remaining, $format));
+    }
+
+    /**
+     * Gets common attributes for rows, such as ETA
+     * @param stdClass $record
+     * @return array attributes
+     */
+    protected function get_common_attributes($record): array {
+        $attributes = [];
+        $eta = $this->get_eta($record);
+        if (!empty($eta)) {
+            $attributes['title'] = $eta;
+        }
+        return $attributes;
     }
 }
