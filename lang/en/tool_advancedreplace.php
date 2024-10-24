@@ -85,6 +85,7 @@ $string['field_skipzipfilenames_help'] = 'Regular expression to reject subfiles 
 $string['filespagename'] = 'Advanced file search';
 $string['filespageheader'] = 'Search for text in Moodle files';
 $string['newsearch'] = 'New search';
+$string['strftimedatetimemonthshort'] = '%d %b %Y, %I:%M %p';
 $string['searchdeleted'] = 'The selected search was deleted.';
 $string['searchpagename'] = 'Advanced replace search';
 $string['searchpageheader'] = 'Search for text stored in the DB';
