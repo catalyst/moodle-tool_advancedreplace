@@ -36,7 +36,7 @@ final class file_search_test extends \advanced_testcase {
             [
                 'no restrictions',
                 (object) [],
-                '',
+                '1 = 1',
                 [],
             ],
 

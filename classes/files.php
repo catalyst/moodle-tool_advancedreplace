@@ -42,6 +42,7 @@ class files extends search {
         'openzips',
         'zipfilenames',
         'skipzipfilenames',
+        'shards',
     ];
 
     /** @var string File area for output files */
@@ -107,6 +108,15 @@ class files extends search {
             'skipzipfilenames' => [
                 'type' => PARAM_RAW,
                 'default' => '',
+            ],
+            'shards' => [
+                'type' => PARAM_INT,
+                'default' => 1,
+            ],
+            'shardnum' => [
+                'type' => PARAM_INT,
+                'default' => null,
+                'null' => NULL_ALLOWED,
             ],
             'origin' => [
                 'type' => PARAM_TEXT,

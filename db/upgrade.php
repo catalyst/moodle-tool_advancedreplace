@@ -141,5 +141,29 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
 
         upgrade_plugin_savepoint(true, 2024102000, 'tool', 'advancedreplace');
     }
+
+    if ($oldversion < 2024102801) {
+
+        // Define field shards to be added to tool_advancedreplace_files.
+        $table = new xmldb_table('tool_advancedreplace_files');
+        $field = new xmldb_field('shards', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '1', 'skipzipfilenames');
+
+        // Conditionally launch add field shards.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Define field shardparent to be added to tool_advancedreplace_files.
+        $field = new xmldb_field('shardnum', XMLDB_TYPE_INTEGER, '3', null, null, null, null, 'shards');
+
+        // Conditionally launch add field shardparent.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Advancedreplace savepoint reached.
+        upgrade_plugin_savepoint(true, 2024102801, 'tool', 'advancedreplace');
+    }
+
     return true;
 }

@@ -123,17 +123,12 @@ class file_search {
     const CSV_MATCH     = 14;
 
     /**
-     * Searches the DB using a persistent record.
-     *
+     * Transforms a file record into critera for a where clause
      * @param \tool_advancedreplace\files $record
-     * @param string $output path
-     * @return void
+     * @return object
      */
-    public static function files(files $record, string $output = '') {
-        global $DB;
-        \core_php_time_limit::raise();
-        raise_memory_limit(MEMORY_HUGE);
-        $criteria = (object) [
+    public static function get_criteria(files $record): object {
+        return (object) [
             'pattern' => '%' . trim($record->get('pattern')) . '%i',
             'components' => trim($record->get('components')),
             'skipcomponents' => trim($record->get('skipcomponents')),
@@ -146,8 +141,25 @@ class file_search {
             'zipfilenames' => trim($record->get('zipfilenames')),
             'skipzipfilenames' => trim($record->get('skipzipfilenames')),
         ];
+    }
+
+    /**
+     * Searches the DB using a persistent record.
+     *
+     * @param \tool_advancedreplace\files $record
+     * @param string $output path
+     * @param int $limitfrom limit for sql
+     * @param int $limitnum limit for sql
+     * @return void
+     */
+    public static function files(files $record, string $output = '', int $limitfrom = 0, int $limitnum = 0) {
+        global $DB;
+        \core_php_time_limit::raise();
+        raise_memory_limit(MEMORY_HUGE);
+        $criteria = self::get_criteria($record);
 
         $id = $record->get('id');
+        $shard = $record->is_shard();
         $filename = $record->get_filename();
         // Create temp output directory.
         if (!$output) {
@@ -170,6 +182,9 @@ class file_search {
         $matchcount = 0;
         $filecount = 0;
         $totalfiles = $DB->count_records_select('files', $whereclause, $params);
+        if (!empty($limitnum)) {
+            $totalfiles = min($totalfiles, $limitnum);
+        }
         $sql = "
             SELECT
                 f.id, f.component, f.filearea, f.contextid, f.itemid, f.filename, f.filepath, f.mimetype,
@@ -182,9 +197,9 @@ class file_search {
                                                WHEN ctx.contextlevel = 70 THEN cm.course
                                            END
             WHERE $whereclause
-            ORDER BY f.component, f.filearea, f.contextid, f.itemid
+            ORDER BY f.component, f.filearea, f.contextid, f.itemid, f.id
         ";
-        $fileset = $DB->get_recordset_sql($sql, $params);
+        $fileset = $DB->get_recordset_sql($sql, $params, $limitfrom, $limitnum);
         foreach ($fileset as $filerecord) {
             $matchcount += self::search_file($filerecord, $criteria, $stream);
             $filecount ++;
@@ -213,7 +228,7 @@ class file_search {
             $record->update();
 
             // Save as pluginfile.
-            if (!empty($matchcount)) {
+            if (!empty($matchcount) && !$shard) {
                 $fs = get_file_storage();
                 $fileinfo = [
                     'contextid' => \context_system::instance()->id,
@@ -227,12 +242,79 @@ class file_search {
             }
         }
         // Remove temp file.
-        if (isset($tempfile) && file_exists($output)) {
+        if (isset($tempfile) && file_exists($output) && !$shard) {
             @unlink($output);
+        }
+
+        if ($shard) {
+            $parent = $record->get_parent();
+            if (isset($parent) && $parent->shards_finished()) {
+                self::combine_shard_output($parent);
+            }
         }
     }
 
+    /**
+     * Combines shard output into the parent once all shards are finished
+     * @param \tool_advancedreplace\files $parent
+     * @return void
+     */
+    public static function combine_shard_output(files $parent): void {
+        // Load shards.
+        $files = [];
+        $shards = $parent->get_all_shards();
+        $matches = 0;
+        foreach ($shards as $shard) {
+            $files[] = $shard->get_temp_filepath();
+            $matches += $shard->get('matches');
+        }
 
+        // Update parent.
+        $parent->set('timeend', time());
+        $parent->set('matches', $matches);
+        $parent->set('progress', 100);
+        $parent->update();
+
+        // Copy data into one csv.
+        $dir = make_request_directory();
+        $output = $dir . '/' . $parent->get_filename();
+        $outputstream = fopen($output, 'w');
+
+        $firstfile = true;
+        foreach ($files as $file) {
+            if (($input = fopen($file, 'r')) !== false) {
+                $row = 0;
+                while (($data = fgetcsv($input)) !== false) {
+                    // Only include header for first file.
+                    if ($firstfile || $row > 0) {
+                        fputcsv($outputstream, $data);
+                    }
+                    $row++;
+                }
+                fclose($input);
+            }
+            $firstfile = false;
+        }
+
+        // Create new pluginfile.
+        $fs = get_file_storage();
+        $fileinfo = [
+            'contextid' => \context_system::instance()->id,
+            'component' => 'tool_advancedreplace',
+            'filearea'  => 'files',
+            'itemid'    => $parent->get('id'),
+            'filepath'  => '/',
+            'filename'  => $parent->get_filename(),
+        ];
+        $fs->create_file_from_pathname($fileinfo, $output);
+
+        // Remove old temp files.
+        foreach ($files as $file) {
+            if (file_exists($file)) {
+                @unlink($file);
+            }
+        }
+    }
 
     /**
      * grep_file_content
@@ -478,6 +560,10 @@ class file_search {
                 $whereclause .= $and . "(filearea!=:param{$paramnumber})";
                 $and = ' AND '; // For next one.
             }
+        }
+
+        if (empty($whereclause)) {
+            $whereclause = '1 = 1';
         }
 
         return [$whereclause, $params];

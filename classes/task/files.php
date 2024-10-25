@@ -43,6 +43,54 @@ class files extends \core\task\adhoc_task {
             return;
         }
 
-        \tool_advancedreplace\file_search::files($record);
+        // If the record is meant to have shards, the task only needs to spawn tasks.
+        if ($record->has_shards()) {
+            return self::spawn_shards($record);
+        }
+
+        \tool_advancedreplace\file_search::files($record, '', $data->limitfrom ?? 0, $data->limitnum ?? 0);
+    }
+
+    /**
+     * Spawns multiple tasks for each shard.
+     * @param \tool_advancedreplace\files $record
+     * @return void
+     */
+    public static function spawn_shards(\tool_advancedreplace\files $record): void {
+        global $DB;
+
+        $searchid = $record->get('id');
+        $numshards = $record->get('shards');
+        $timestart = time();
+
+        // Get the total number of files.
+        $criteria = \tool_advancedreplace\file_search::get_criteria($record);
+        [$whereclause, $params] = \tool_advancedreplace\file_search::make_where_clause($criteria);
+        $totalfiles = $DB->count_records_select('files', $whereclause, $params);
+
+        // Create and spawn new tasks.
+        $search = new \tool_advancedreplace\files($searchid);
+        $basedata = $search->copy_data(true);
+        $limitfrom = 0;
+        $limitnum = ceil($totalfiles / $numshards);
+        $shardnum = 0;
+        while ($shardnum < $numshards) {
+            $shardnum++;
+            $basedata->shardnum = $shardnum;
+            $shard = new \tool_advancedreplace\files(0, $basedata);
+            $shard->create();
+
+            // Remove the limit on the last shard.
+            if ($shardnum === $numshards) {
+                $limitnum = 0;
+            }
+
+            $shard->queue_task($limitfrom, $limitnum);
+            $limitfrom += $limitnum;
+        }
+
+        // Update the start time on the parent.
+        $record->set('timestart', $timestart);
+        $record->update();
     }
 }
