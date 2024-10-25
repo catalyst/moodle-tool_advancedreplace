@@ -67,4 +67,11 @@ class files_table extends search_table {
         'skipzipfilenames',
     ];
 
+    /**
+     * Gets the where SQL.
+     * @return string where SQL.
+     */
+    protected function get_where_sql(): string {
+        return 'shardnum IS NULL';
+    }
 }

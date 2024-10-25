@@ -41,6 +41,9 @@ class search_table extends \table_sql {
      */
     protected $urlfragment = 'search.php';
 
+    /** @var array of persistent searches */
+    protected $persistent = [];
+
     /** Columns to be displayed. */
     const COLUMNS = [
         'id',
@@ -93,6 +96,8 @@ class search_table extends \table_sql {
         $this->define_columns($columns);
         $this->column_class('progress', 'text-right');
         $this->column_class('matches', 'text-right');
+        $this->column_class('options', 'text-break');
+        $this->column_style('options', 'max-width', '400px');
         $this->define_headers($headers);
     }
 
@@ -107,6 +112,14 @@ class search_table extends \table_sql {
     }
 
     /**
+     * Gets the where SQL.
+     * @return string where SQL.
+     */
+    protected function get_where_sql(): string {
+        return '1=1';
+    }
+
+    /**
      * Overrides felxible_table::setup() to do some extra setup.
      *
      * @return false|\type|void
@@ -117,11 +130,56 @@ class search_table extends \table_sql {
         $this->set_sql(
             "*, $duration",
             "{{$table}}",
-            '1=1',
+            $this->get_where_sql(),
         );
         $retvalue = parent::setup();
         $this->set_attribute('class', $this->attributes['class'] . ' table-sm mb-3');
         return $retvalue;
+    }
+
+    /**
+     * Returns the search persistent for the record.
+     * @param \stdClass $record
+     * @return search
+     */
+    public function get_persistent(stdClass $record): search {
+        if (empty($this->persistent[$record->id])) {
+            $this->persistent[$record->id] = new $this->dbclass(0, $record);
+        }
+        return $this->persistent[$record->id];
+    }
+
+    /**
+     * Returns the shards for the record.
+     * @param \stdClass $record
+     * @return array
+     */
+    protected function get_shards(stdClass $record): array {
+        $persistent = $this->get_persistent($record);
+        if ($persistent->has_shards() && !$persistent->is_finished()) {
+            return $persistent->get_all_shards();
+        }
+        return [];
+    }
+
+    /**
+     * Generic function to format a row that may contain shards. Column output for
+     * child searches will be combined into the parent until the task is finished.
+     * @param stdClass $record
+     * @param string $column column being formatted
+     * @return string formatted text
+     */
+    protected function format_with_shards(stdClass $record, string $column): string {
+        $function = 'format_' . $column;
+        $shards = $this->get_shards($record);
+        if (empty($shards)) {
+            return $this->$function($record);
+        }
+        $output = '';
+        foreach ($shards as $shard) {
+            $output .= \html_writer::span($this->$function($shard->to_record()), 'text-nowrap') . '<br>';
+        }
+        return format_text($output);
     }
 
     /**
@@ -174,6 +232,16 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_progress($record): string {
+        return $this->format_with_shards($record, 'progress');
+    }
+
+    /**
+     * Formats content for the progress column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function format_progress($record): string {
         $progress = get_string('percents', 'moodle', round($record->progress, 1));
         $badge = 'badge badge-secondary';
         if ($record->progress == 100 && !empty($record->timeend)) {
@@ -185,6 +253,8 @@ class search_table extends \table_sql {
         }
 
         $attributes = $this->get_common_attributes($record);
+        // Add a slight margin to badges to make them line up nicely on boost theme.
+        $attributes['style'] = 'margin: 0.05em';
         return \html_writer::span($progress, $badge, $attributes);
     }
 
@@ -195,6 +265,16 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_timestart($record): string {
+        return $this->format_with_shards($record, 'timestart');
+    }
+
+    /**
+     * Formats content for timestart column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function format_timestart($record): string {
         if (empty($record->timestart)) {
             return '';
         }
@@ -209,12 +289,23 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_duration($record): string {
+        return $this->format_with_shards($record, 'duration');
+    }
+
+
+    /**
+     * Formats content for duration column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function format_duration($record): string {
         if (empty($record->timestart)) {
             return '';
         }
 
-        // If task is finished use record duration, otherwise calculate in progress duration.
-        $duration = !empty($record->timeend) ? $record->duration : time() - $record->timestart;
+        // Use record timeend if set, otherwise current time as in progress duration.
+        $duration = (!empty($record->timeend) ? $record->timeend : time()) - $record->timestart;
         if (empty($duration)) {
             // The format_time function returns 'now' when the difference is exactly 0.
             return '0 ' . get_string('secs', 'moodle');
@@ -222,6 +313,26 @@ class search_table extends \table_sql {
 
         $attributes = $this->get_common_attributes($record);
         return \html_writer::span(format_time($duration), '', $attributes);
+    }
+
+    /**
+     * Generate content for matches column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function col_matches($record): string {
+        return $this->format_with_shards($record, 'matches');
+    }
+
+    /**
+     * Formats content for matches column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function format_matches($record): string {
+        return $record->matches;
     }
 
     /**
@@ -239,6 +350,13 @@ class search_table extends \table_sql {
                 $options[] = in_array($option, $bool) ? $name : $name . ': ' . $record->$option;
             }
         }
+        $search = $this->get_persistent($record);
+        $shardids = $search->get_shard_ids();
+        if (!empty($shardids)) {
+            $shardids = $search->get_shard_ids();
+            $options[] = get_string('field_shards', 'tool_advancedreplace') . ': ' . implode(', ', $shardids);
+        }
+
         return format_text(implode(PHP_EOL, $options));
     }
 
@@ -249,6 +367,16 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function col_output($record): string {
+        return $this->format_with_shards($record, 'output');
+    }
+
+    /**
+     * Generate content for output column.
+     *
+     * @param stdClass $record
+     * @return string html used to display the manage column field.
+     */
+    public function format_output($record): string {
         $output = '';
         $output .= self::get_download_link($record);
         return $output;
@@ -277,20 +405,26 @@ class search_table extends \table_sql {
         global $OUTPUT;
 
         // Load the persistent to get records.
-        $search = new $this->dbclass(0, $record);
+        $search = $this->get_persistent($record);
         $file = $search->get_file();
+        $tempname = false;
 
         // Make sure search is finished and we have a file.
         if (empty($record->timeend) || !$file) {
             // If we have any matches, we may still be able to provide a temporary file.
-            if (!$record->matches || !file_exists($search->get_temp_filepath())) {
+            $temppath = $search->get_temp_filepath();
+            if (!$record->matches || !file_exists($temppath)) {
                 return '';
+            }
+            if (!$search->is_shard() || !$search->is_finished()) {
+                $tempname = true;
             }
         }
 
-        $fileurl = $search->get_pluginfile_url(!$file);
-        $filename = $search->get_filename(!$file);
-        $filesize = $file ? display_size($file->get_filesize()) : get_string('statusna');
+        $fileurl = $search->get_pluginfile_url($tempname);
+        $filename = $search->get_filename($tempname);
+        $filesize = $file ? $file->get_filesize() : filesize($temppath);
+        $filesize = display_size($filesize);
 
         $download = \html_writer::link($fileurl, $filename);
         return "$download ($filesize)";

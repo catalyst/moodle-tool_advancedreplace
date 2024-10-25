@@ -114,6 +114,12 @@ class files extends \core\form\persistent {
         $mform->setDefault('skipzipfilenames', '');
         $mform->addElement('static', 'skipzipfilenames_help', '', get_string( 'field_skipzipfilenames_help', self::PLUGIN));
 
+        $mform->addElement('text', 'shards', get_string("field_shards", self::PLUGIN, $fullwidth));
+        $mform->setType('shards', PARAM_INT);
+        $mform->addRule('shards', get_string('err_numeric', 'form'), 'numeric', null, 'client');
+        $mform->setDefault('shards', 1);
+        $mform->addElement('static', 'shards_help', '', get_string( 'field_shards_help', self::PLUGIN));
+
         $this->add_action_buttons(true, get_string('search'));
     }
 }

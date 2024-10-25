@@ -34,6 +34,9 @@ abstract class search extends \core\persistent {
     /** @var string Class for the adhoc task */
     protected $adhoctask = '';
 
+    /** @var array Records of child shards */
+    protected $shards = null;
+
     /**
      * Hook to execute before a delete.
      *
@@ -55,29 +58,53 @@ abstract class search extends \core\persistent {
             if ($file = $this->get_file()) {
                 $file->delete();
             }
+            // Delete remaining temp files.
+            $tempfile = $this->get_temp_filepath();
+            if (!empty($tempfile) && file_exists($tempfile)) {
+                @unlink($tempfile);
+            }
+            // Delete shards.
+            $shards = $this->get_all_shards();
+            foreach ($shards as $shard) {
+                $shard->delete();
+            }
         }
     }
 
     /**
      * Queues a search task to be run
+     * @param int $limitfrom where to start the search sql
+     * @param int $limitnum limit the number of sql results
      * @return bool true if the task was queued
      */
-    public function queue_task(): bool {
+    public function queue_task(int $limitfrom = 0, int $limitnum = 0): bool {
         $adhoctask = new $this->adhoctask;
-        $adhoctask->set_custom_data([
+        $customdata = [
             'searchid' => $this->get('id'),
-        ]);
+        ];
+        // If we have either limits we should include both.
+        if (!empty($limitfrom) || !empty($limitnum)) {
+            $customdata['limitfrom'] = $limitfrom;
+            $customdata['limitnum'] = $limitnum;
+        }
+        $adhoctask->set_custom_data($customdata);
         return \core\task\manager::queue_adhoc_task($adhoctask);
     }
 
     /**
      * Returns a clean copy of data that can be used to rerun a search.
+     * @param int $shard if the copied data will be used for a shard.
      * @return \stdClass
      */
-    public function copy_data(): \stdClass {
+    public function copy_data($shard = false): \stdClass {
         $data = new \stdClass();
         foreach (static::COPY_COLUMNS as $column) {
             $data->$column = $this->get($column);
+        }
+        if ($shard) {
+            $data->shardnum = 1;
+            $data->origin = $this->get('id');
+            $data->userid = $this->get('userid');
         }
         return $data;
     }
@@ -140,8 +167,97 @@ abstract class search extends \core\persistent {
     public function get_filename($temp = false): string {
         // The hardcoded default filename should not be changed.
         $name = $this->get('name');
-        $filename = !empty($name) ? $name : 'searchresult-' . $this->get('id');
-        $temp = $temp ? '-temp' : '';
-        return strtolower($filename) . $temp . '.csv';
+        $shard = $this->is_shard();
+        $id = $this->is_shard() ? $this->get('origin') : $this->get('id');
+        $filename = !empty($name) ? strtolower($name) : 'searchresult-' . $id;
+        if ($shard) {
+            $filename .= '-' . $this->get('shardnum') . '-of-' . $this->get('shards');
+        }
+        if ($temp) {
+            $filename .= '-temp';
+        }
+        return $filename . '.csv';
+    }
+
+    /**
+     * Checks whether a search is finished running
+     * @return bool whether the search is finished
+     */
+    public function is_finished(): bool {
+        return !empty($this->get('timeend')) && $this->get('progress') == 100;
+    }
+
+    /**
+     * Checks whether a search is a shard
+     * @return bool whether a search is a shard
+     */
+    public function is_shard(): bool {
+        return $this->has_property('shardnum') && !empty($this->get('shardnum'));
+    }
+
+    /**
+     * Checks whether a search has child shards
+     * @return bool whether a search has child shards
+     */
+    public function has_shards(): bool {
+        return $this->has_property('shards') && $this->get('shards') > 1 && !$this->is_shard();
+    }
+
+    /**
+     * Gets the parent of a shard
+     * @return search|null parent, or null if no parent is found
+     */
+    public function get_parent(): ?search {
+        if (!$this->is_shard()) {
+            return null;
+        }
+
+        $parent = $this->get('origin');
+        return new static($parent);
+    }
+
+    /**
+     * Checks whether all child shards have finished running.
+     * @return bool if all child shards are finished
+     */
+    public function shards_finished(): bool {
+        $shards = $this->get_all_shards();
+        foreach ($shards as $shard) {
+            if (!$shard->is_finished()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Gets all shard ids of a parent
+     * @return array of ids
+     */
+    public function get_shard_ids(): array {
+        $ids = [];
+        $shards = $this->get_all_shards();
+
+        foreach ($shards as $shard) {
+            $ids[] = $shard->get('id');
+        }
+        return $ids;
+    }
+
+    /**
+     * Gets all sharded records
+     * @return array sharded records
+     */
+    public function get_all_shards(): array {
+        if (!$this->has_shards()) {
+            return [];
+        }
+
+        if (isset($this->shards)) {
+            return $this->shards;
+        }
+
+        $this->shards = static::get_records(['origin' => $this->get('id')], 'id');
+        return $this->shards;
     }
 }
