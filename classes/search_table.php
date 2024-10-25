@@ -305,11 +305,6 @@ class search_table extends \table_sql {
     protected function get_delete_link($record): string {
         global $OUTPUT;
 
-        // TODO: Allow deletion of failed tasks.
-        if (empty($record->timeend)) {
-            return '';
-        }
-
         $url = new \moodle_url('/admin/tool/advancedreplace/' . $this->urlfragment,
             ['delete' => $record->id, 'sesskey' => sesskey()]);
         $action = new \confirm_action(get_string('confirm_delete', 'tool_advancedreplace'));

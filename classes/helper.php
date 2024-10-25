@@ -447,7 +447,7 @@ class helper {
 
         // Start output.
         $fp = fopen($output, 'w');
-
+        $searchid = $search->get('id');
         // Show header.
         if (!$search->get('summary')) {
             fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link']);
@@ -494,11 +494,13 @@ class helper {
                     ];
                 }
 
+                if ( ! \tool_advancedreplace\db_search::record_exists($searchid) ) {
+                    // The control row has been deleted, so we should exit.
+                    break 2;
+                }
                 $search->update_status($rowcount, $matches);
             }
         }
-
-        $search->mark_finished($matches, $output);
 
         fclose($fp);
 
@@ -510,21 +512,22 @@ class helper {
                 mtrace(sprintf($format, $log->table, $log->column, $log->rows, $log->matches, $log->time));
             }
         }
-
-        // Save as pluginfile.
-        if (!empty($matches)) {
-            $fs = get_file_storage();
-            $fileinfo = [
-                'contextid' => \context_system::instance()->id,
-                'component' => 'tool_advancedreplace',
-                'filearea'  => 'search',
-                'itemid'    => $search->get('id'),
-                'filepath'  => '/',
-                'filename'  => $search->get_filename(),
-            ];
-            $fs->create_file_from_pathname($fileinfo, $output);
+        if (\tool_advancedreplace\db_search::record_exists($searchid) ) {
+            $search->mark_finished($matches, $output);
+            // Save as pluginfile.
+            if (!empty($matches)) {
+                $fs = get_file_storage();
+                $fileinfo = [
+                    'contextid' => \context_system::instance()->id,
+                    'component' => 'tool_advancedreplace',
+                    'filearea'  => 'search',
+                    'itemid'    => $search->get('id'),
+                    'filepath'  => '/',
+                    'filename'  => $search->get_filename(),
+                ];
+                $fs->create_file_from_pathname($fileinfo, $output);
+            }
         }
-
         // Remove temp file.
         if (isset($tempfile) && file_exists($output)) {
             @unlink($output);
@@ -619,7 +622,7 @@ class helper {
      * @param array $whereparams parameters for the where clause
      */
     private static function replace_all_text($table, database_column_info $column, string $search, string $replace,
-                                            string $wheresql = '', array $whereparams = []) {
+                                             string $wheresql = '', array $whereparams = []) {
         global $DB;
 
         if (!$DB->replace_all_text_supported()) {
@@ -650,10 +653,11 @@ class helper {
                 $sql = "UPDATE {".$table."}
                            SET $columnname = REPLACE($columnname, ?, ?)
                          WHERE $searchsql";
-                break;
+                    break;
             default:
-                throw new moodle_exception(get_string('errorcolumntypenotsupported', 'tool_advancedreplace'));
+                    throw new moodle_exception(get_string('errorcolumntypenotsupported', 'tool_advancedreplace'));
         }
-        $DB->execute($sql, $params);
+                $DB->execute($sql, $params);
     }
 }
+

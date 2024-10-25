@@ -194,7 +194,11 @@ class file_search {
                 // Update progress bar after 5 percent or 10 seconds.
                 $record->set('progress', $percent);
                 $record->set('matches', $matchcount);
-                $record->save();
+                if ( ! \tool_advancedreplace\files::record_exists($id) ) {
+                    // If record has gone, exit the job.
+                    break;
+                }
+                $record->update();
                 $updatetime = $time;
                 $updatepercent = $percent;
             }
@@ -202,25 +206,26 @@ class file_search {
         $fileset->close();
         fclose($stream);
 
-        $record->set('timeend', time());
-        $record->set('progress', 100);
-        $record->set('matches', $matchcount);
-        $record->save();
+        if (\tool_advancedreplace\files::record_exists($id) ) {
+            $record->set('timeend', time());
+            $record->set('progress', 100);
+            $record->set('matches', $matchcount);
+            $record->update();
 
-        // Save as pluginfile.
-        if (!empty($matchcount)) {
-            $fs = get_file_storage();
-            $fileinfo = [
-                'contextid' => \context_system::instance()->id,
-                'component' => 'tool_advancedreplace',
-                'filearea'  => 'files',
-                'itemid'    => $id,
-                'filepath'  => '/',
-                'filename'  => $filename,
-            ];
-            $fs->create_file_from_pathname($fileinfo, $output);
+            // Save as pluginfile.
+            if (!empty($matchcount)) {
+                $fs = get_file_storage();
+                $fileinfo = [
+                    'contextid' => \context_system::instance()->id,
+                    'component' => 'tool_advancedreplace',
+                    'filearea'  => 'files',
+                    'itemid'    => $id,
+                    'filepath'  => '/',
+                    'filename'  => $filename,
+                ];
+                $fs->create_file_from_pathname($fileinfo, $output);
+            }
         }
-
         // Remove temp file.
         if (isset($tempfile) && file_exists($output)) {
             @unlink($output);
@@ -361,14 +366,14 @@ class file_search {
                     $csv[self::CSV_STRATEGY] = 'zip';
                     $matchcount = self::unzip_content($csv, $file->get_content(), $criteria, $stream);
                 }
-                    break;
+                break;
             default:
                 $csv[self::CSV_STRATEGY] = 'plain';
                 $csv[self::CSV_INTERNAL] = '';
                 $matchcount = self::grep_content($csv, $file->get_content(), $criteria, $stream);
-                    break;
+                break;
         }
-                return $matchcount;
+        return $matchcount;
     }
 
             /**
@@ -478,6 +483,8 @@ class file_search {
         return [$whereclause, $params];
     }
 }
+
+
 
 
 
