@@ -438,6 +438,9 @@ class file_search {
             self::CSV_FILEPATH  => $filerecord->filepath,
             self::CSV_FILENAME  => $filerecord->filename,
             self::CSV_MIMETYPE  => $filerecord->mimetype,
+            self::CSV_STRATEGY  => 'plain',
+            self::CSV_INTERNAL  => '',
+            self::CSV_REPLACE   => '',
         ];
         switch ($filerecord->mimetype) {
             case 'application/zip.h5p':
@@ -450,8 +453,6 @@ class file_search {
                 }
                 break;
             default:
-                $csv[self::CSV_STRATEGY] = 'plain';
-                $csv[self::CSV_INTERNAL] = '';
                 $matchcount = self::grep_content($csv, $file->get_content(), $criteria, $stream);
                 break;
         }
