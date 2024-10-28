@@ -45,6 +45,9 @@ class files extends search {
         'shards',
     ];
 
+    /** How many seconds to wait before marking a search as stale. */
+    public const STALE = MINSECS;
+
     /** @var string File area for output files */
     protected $filearea = 'files';
 

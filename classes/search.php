@@ -28,6 +28,9 @@ abstract class search extends \core\persistent {
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [];
 
+    /** How many seconds to wait before marking a search as stale. */
+    public const STALE = MINSECS * 5;
+
     /** @var string File area for output files */
     protected $filearea = '';
 
@@ -110,6 +113,24 @@ abstract class search extends \core\persistent {
     }
 
     /**
+     * Gets the duration of a search
+     * @return int duration
+     */
+    public function get_duration(): int {
+        $timestart = $this->get('timestart');
+        if (empty($timestart)) {
+            return 0;
+        }
+
+        $timeend = $this->get('timeend');
+        if (empty($timeend)) {
+            // If stale, use time modified, otherwise it's ongoing so use current time.
+            $timeend = $this->is_stale() ? $this->get('timemodified') : time();
+        }
+        return $timeend - $timestart;
+    }
+
+    /**
      * Gets the file name for temporary search output.
      * @return string filename of temporary output
      */
@@ -180,10 +201,37 @@ abstract class search extends \core\persistent {
     }
 
     /**
+     * Checks whether a search is stale
+     * @return bool whether the search is stale
+     */
+    public function is_stale(): bool {
+        if ($this->is_finished()) {
+            return false;
+        }
+
+        $lastupdated = time() - $this->get('timemodified');
+        return !empty($this->get('timestart') && $lastupdated > static::STALE);
+    }
+
+    /**
+     * Checks whether a search is in progress
+     * @return bool whether the search is in progress
+     */
+    public function in_progress(): bool {
+        if ($this->is_finished()) {
+            return false;
+        }
+
+        // Having timestart should be enough, but the extra check on progress won't hurt.
+        return !empty($this->get('timestart')) || $this->get('progress') > 0;
+    }
+
+    /**
      * Checks whether a search is finished running
      * @return bool whether the search is finished
      */
     public function is_finished(): bool {
+        // Check both progress and time end for finished in case progress is rounded up.
         return !empty($this->get('timeend')) && $this->get('progress') == 100;
     }
 

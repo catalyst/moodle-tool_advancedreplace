@@ -40,6 +40,9 @@ class db_search extends search {
         'summary',
     ];
 
+    /** How many seconds to wait before marking a search as stale. */
+    public const STALE = HOURSECS;
+
     /** @var string File area for output files */
     protected $filearea = 'search';
 
