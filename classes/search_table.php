@@ -244,11 +244,12 @@ class search_table extends \table_sql {
     public function format_progress($record): string {
         $progress = get_string('percents', 'moodle', round($record->progress, 1));
         $badge = 'badge badge-secondary';
-        if ($record->progress == 100 && !empty($record->timeend)) {
-            // Finished. Check both progress and time end for success in case progress is rounded up.
+        $search = $this->get_persistent($record);
+        if ($search->is_finished()) {
             $badge = 'badge badge-success';
-        } else if (!empty($record->timestart) || $record->progress > 0) {
-            // In progress. Having timestart should be enough, but the extra check on progress won't hurt.
+        } else if ($search->is_stale()) {
+            $badge = 'badge badge-danger';
+        } else if ($search->in_progress()) {
             $badge = 'badge badge-warning';
         }
 
@@ -304,8 +305,8 @@ class search_table extends \table_sql {
             return '';
         }
 
-        // Use record timeend if set, otherwise current time as in progress duration.
-        $duration = (!empty($record->timeend) ? $record->timeend : time()) - $record->timestart;
+        $search = $this->get_persistent($record);
+        $duration = $search->get_duration();
         if (empty($duration)) {
             // The format_time function returns 'now' when the difference is exactly 0.
             return '0 ' . get_string('secs', 'moodle');
@@ -471,7 +472,7 @@ class search_table extends \table_sql {
     protected function get_eta($record): string {
         global $OUTPUT;
 
-        if (!empty($record->timeend) || empty($record->progress) || $record->progress < 5) {
+        if (!empty($record->timeend) || empty($record->progress) || $record->progress < 2) {
             return '';
         }
 
@@ -491,9 +492,15 @@ class search_table extends \table_sql {
      */
     protected function get_common_attributes($record): array {
         $attributes = [];
-        $eta = $this->get_eta($record);
-        if (!empty($eta)) {
-            $attributes['title'] = $eta;
+        $search = $this->get_persistent($record);
+        if ($search->is_stale()) {
+            $lastupdated = time() - $record->timemodified;
+            $attributes['title'] = get_string('lastupdated', 'tool_advancedreplace', format_time($lastupdated));
+        } else if ($search->in_progress()) {
+            $eta = $this->get_eta($record);
+            if (!empty($eta)) {
+                $attributes['title'] = $eta;
+            }
         }
         return $attributes;
     }
