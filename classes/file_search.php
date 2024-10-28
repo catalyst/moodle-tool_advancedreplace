@@ -161,12 +161,12 @@ class file_search {
         global $DB;
         \core_php_time_limit::raise();
         raise_memory_limit(MEMORY_HUGE);
+        $processing = true;
         $criteria = self::get_criteria($record);
 
         $id = $record->get('id');
         $logmessage = "Advanced search in files, job $id.";
         $shard = $record->is_shard();
-        $filename = $record->get_filename();
         // Create a shared temp output directory.
         if (!$output) {
             $tempfile = true;
@@ -213,11 +213,10 @@ class file_search {
 
         mtrace($logmessage);
         $record->set('timestart', time());
-        $updatetime = time();
-        $updatepercent = 0;
         $filecount = 0;
         $total = $DB->get_record_sql("SELECT COUNT('x') total FROM {files} f WHERE " . $whereclause, $params);
         $totalfiles = $total->total;
+        $record->mark_started($totalfiles);
         $sql = "
             SELECT
                 f.id, f.component, f.filearea, f.contextid, f.itemid, f.filename, f.filepath, f.mimetype,
@@ -234,52 +233,28 @@ class file_search {
         ";
         $fileset = $DB->get_recordset_sql($sql, $params);
         foreach ($fileset as $filerecord) {
+            $record->update_progress_bar("Searching in $filerecord->component:$filerecord->filename");
             $matchcount += self::search_file($filerecord, $criteria, $stream);
             $filecount ++;
-            $time = time();
-            $percent = round(100 * $filecount / $totalfiles, 2);
-            if ($time > $updatetime + 10 || $percent > $updatepercent + 5) {
-                // Update progress bar after 5 percent or 10 seconds.
-                $record->set('progress', $percent);
-                $record->set('matches', $matchcount);
-                if ( ! \tool_advancedreplace\files::record_exists($id) ) {
-                    // If record has gone, exit the job.
-                    break;
-                }
-                $record->update();
-                $updatetime = $time;
-                $updatepercent = $percent;
+            // Update status. If this returns false, the record is gone so stop searching.
+            if (!$processing = $record->update_status($filecount, $matchcount)) {
+                break;
             }
+
         }
         $fileset->close();
         fclose($stream);
 
-        if (\tool_advancedreplace\files::record_exists($id) ) {
-            $record->set('timeend', time());
-            $record->set('progress', 100);
-            $record->set('matches', $matchcount);
-            $record->update();
-
-            // Save as pluginfile.
-            if (!empty($matchcount) && !$shard) {
-                $fs = get_file_storage();
-                $fileinfo = [
-                    'contextid' => \context_system::instance()->id,
-                    'component' => 'tool_advancedreplace',
-                    'filearea'  => 'files',
-                    'itemid'    => $id,
-                    'filepath'  => '/',
-                    'filename'  => $filename,
-                ];
-                $fs->create_file_from_pathname($fileinfo, $output);
-            }
+        if ($processing) {
+            $record->mark_finished($matchcount);
+            $record->save_pluginfile($output);
         }
         // Remove temp file.
         if (isset($tempfile) && file_exists($output) && !$shard) {
             @unlink($output);
         }
 
-        if ($shard) {
+        if ($processing && $shard) {
             $parent = $record->get_parent();
             if (isset($parent) && $parent->shards_finished()) {
                 self::combine_shard_output($parent);
@@ -303,10 +278,7 @@ class file_search {
         }
 
         // Update parent.
-        $parent->set('timeend', time());
-        $parent->set('matches', $matches);
-        $parent->set('progress', 100);
-        $parent->update();
+        $parent->mark_finished($matches);
 
         if (!empty($matches)) {
             // Copy data into one csv.
@@ -335,16 +307,7 @@ class file_search {
             fclose($output);
 
             // Create new pluginfile.
-            $fs = get_file_storage();
-            $fileinfo = [
-                'contextid' => \context_system::instance()->id,
-                'component' => 'tool_advancedreplace',
-                'filearea'  => 'files',
-                'itemid'    => $parent->get('id'),
-                'filepath'  => '/',
-                'filename'  => $parent->get_filename(),
-            ];
-            $fs->create_file_from_pathname($fileinfo, $outputpath);
+            $parent->save_pluginfile($output);
         }
 
         // Remove old temp files.
