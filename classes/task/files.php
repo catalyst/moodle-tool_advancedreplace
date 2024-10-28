@@ -35,8 +35,11 @@ class files extends \core\task\adhoc_task {
             return;
         }
 
-        $record = new \tool_advancedreplace\files($data->searchid);
+        $record = \tool_advancedreplace\files::get_record(['id' => $data->searchid]);
         if (empty($record)) {
+            // This may occur if the row has been deleted by the UI before the adhoc task has run.
+            // Or if a failed adhoc task is being re-run after the row is deleted.
+            // We want to silently do nothing and "succeed" so there will be no more re-runs.
             return;
         }
 
