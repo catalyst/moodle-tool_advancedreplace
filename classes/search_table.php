@@ -96,7 +96,6 @@ class search_table extends \table_sql {
         $this->define_columns($columns);
         $this->column_class('progress', 'text-right');
         $this->column_class('matches', 'text-right');
-        $this->column_class('options', 'text-break');
         $this->column_style('options', 'max-width', '400px');
         $this->define_headers($headers);
     }
@@ -348,7 +347,9 @@ class search_table extends \table_sql {
         foreach (static::OPTIONS as $option) {
             if (!empty($record->$option)) {
                 $name = get_string('field_' . $option, 'tool_advancedreplace');
-                $options[] = in_array($option, $bool) ? $name : $name . ': ' . $record->$option;
+                // Add a space between comma seperated values.
+                $value = preg_replace('/,(?!\s)/', ', ', $record->$option);
+                $options[] = in_array($option, $bool) ? $name : $name . ': ' . $value;
             }
         }
         $search = $this->get_persistent($record);
