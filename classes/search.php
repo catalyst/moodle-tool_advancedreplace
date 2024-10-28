@@ -37,17 +37,12 @@ abstract class search extends \core\persistent {
     /** @var string Class for the adhoc task */
     protected $adhoctask = '';
 
+    /**
+     * @var \stdClass tracking of current status */
+    protected $status = null;
+
     /** @var array Records of child shards */
     protected $shards = null;
-
-    /**
-     * Hook to execute before a delete.
-     *
-     * @return void
-     */
-    protected function before_delete(): void {
-        // TODO: Clean up any remaining adhoc tasks.
-    }
 
     /**
      * Hook to execute after a delete
@@ -101,7 +96,7 @@ abstract class search extends \core\persistent {
      * @param int $shard if the copied data will be used for a shard.
      * @return \stdClass
      */
-    public function copy_data($shard = false): \stdClass {
+    public function copy_data(int $shard = 0): \stdClass {
         $data = new \stdClass();
         foreach (static::COPY_COLUMNS as $column) {
             $data->$column = $this->get($column);
@@ -112,6 +107,105 @@ abstract class search extends \core\persistent {
             $data->userid = $this->get('userid');
         }
         return $data;
+    }
+
+    /**
+     * Check if the search still exists
+     * @return bool if the search still exists
+     */
+    public function search_exists(): bool {
+        if (!$this->record_exists($this->get('id'))) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Updates a progress bar using the current status.
+     * @param string $message progress message
+     * @return void
+     */
+    public function update_progress_bar(string $message): void {
+        if (isset($this->status) && isset($this->status->progressbar)) {
+            $this->status->progressbar->update($this->status->itemcount, $this->status->totalcount, $message);
+        }
+    }
+
+    /**
+     * Updates the tracking status of a search.
+     * @param int $itemcount number of items that have been searched
+     * @param int $matches matches found
+     * @throws \coding_exception
+     * @return bool whether we should continue searching
+     */
+    public function update_status(int $itemcount, int $matches): bool {
+        if (!isset($this->status)) {
+            throw new \coding_exception('Status has not been initalised');
+        }
+
+        // Update item count.
+        $this->status->itemcount = $itemcount;
+
+        // Only update update search progress every 10 seconds or 5 percent.
+        $time = time();
+        $percent = round(100 * $itemcount / $this->status->totalcount, 2);
+        if ($time > $this->status->prevtime + 10 || $percent > $this->status->prevpercent + 5) {
+            // If record has gone, exit the job.
+            if (!$this->search_exists()) {
+                return false;
+            }
+
+            $this->set('progress', $percent);
+            $this->set('matches', $matches);
+            $this->update();
+            $this->status->prevtime = $time;
+            $this->status->prevpercent = $percent;
+        }
+        return true;
+    }
+
+    /**
+     * Marks a search as having started and initialises tracking.
+     * @param int $totalcount estimate of total being searched
+     * @return void
+     */
+    public function mark_started(int $totalcount): void {
+        $this->set('timestart', time());
+        $this->update();
+
+        // Setup tracking.
+        $status = new \stdClass();
+        $status->prevtime = time();
+        $status->prevpercent = 0;
+        $status->itemcount = 0;
+        $status->totalcount = $totalcount;
+        $status->progressbar = null;
+
+        // If called from CLI, add a progress bar.
+        if ($this->get('origin') === 'cli') {
+            $status->progressbar = new \progress_bar();
+            $status->progressbar->create();
+        }
+        $this->status = $status;
+    }
+
+    /**
+     * Saves the final values and marks a search as finished.
+     *
+     * @param int $matches matches found
+     * @param string $output
+     * @return void
+     */
+    public function mark_finished(int $matches, string $output = ''): void {
+        // Update progress bar.
+        if (isset($this->status) && isset($this->status->progressbar)) {
+            $this->status->progressbar->update_full(100, "Finished saving searches into $output");
+        }
+
+        $this->set('timeend', time());
+        $this->set('progress', 100);
+        $this->set('matches', $matches);
+        $this->update();
     }
 
     /**
@@ -154,7 +248,7 @@ abstract class search extends \core\persistent {
      * @param bool $temp add temp identifier to pluginfile
      * @return string pluginfile url
      */
-    public function get_pluginfile_url($temp = false) {
+    public function get_pluginfile_url(bool $temp = false): string {
         $pathname = $temp ? '/temp/' : '/';
         return \moodle_url::make_pluginfile_url(
             \context_system::instance()->id,
@@ -164,6 +258,28 @@ abstract class search extends \core\persistent {
             $pathname,
             $this->get_filename($temp)
         )->out();
+    }
+
+    /**
+     * Saves search output as a pluginfile
+     * @param string $output path
+     * @return void
+     */
+    public function save_pluginfile(string $output): void {
+        if (empty($this->get('matches')) || $this->is_shard()) {
+            return;
+        }
+
+        $fs = get_file_storage();
+        $fileinfo = [
+            'contextid' => \context_system::instance()->id,
+            'component' => 'tool_advancedreplace',
+            'filearea'  => $this->filearea,
+            'itemid'    => $this->get('id'),
+            'filepath'  => '/',
+            'filename'  => $this->get_filename(),
+        ];
+        $fs->create_file_from_pathname($fileinfo, $output);
     }
 
     /**
@@ -187,7 +303,7 @@ abstract class search extends \core\persistent {
      * @param bool $temp add temp identifier to filename
      * @return string filename
      */
-    public function get_filename($temp = false): string {
+    public function get_filename(bool $temp = false): string {
         // The hardcoded default filename should not be changed.
         $name = $this->get('name');
         $shard = $this->is_shard();
@@ -307,7 +423,7 @@ abstract class search extends \core\persistent {
             return $this->shards;
         }
 
-        $this->shards = static::get_records(['origin' => $this->get('id')], 'id');
+        $this->shards = $this->get_records(['origin' => $this->get('id')], 'id');
         return $this->shards;
     }
 }
