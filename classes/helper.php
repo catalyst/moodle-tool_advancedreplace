@@ -433,6 +433,8 @@ class helper {
      * @return void
      */
     public static function search_db(db_search $search, string $output = ''): void {
+        $processing = true;
+
         // Create temp output directory.
         if (!$output) {
             $tempfile = true;
@@ -447,7 +449,6 @@ class helper {
 
         // Start output.
         $fp = fopen($output, 'w');
-        $searchid = $search->get('id');
         // Show header.
         if (!$search->get('summary')) {
             fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link']);
@@ -472,7 +473,7 @@ class helper {
                 $colstart = time();
 
                 // Show the table and column being searched.
-                $search->update_progress_bar($table, $colname);
+                $search->update_progress_bar("Searching in $table:$colname");
 
                 // Perform the search.
                 $results = self::search_column($search, $table, $column, $fp);
@@ -494,11 +495,10 @@ class helper {
                     ];
                 }
 
-                if ( ! \tool_advancedreplace\db_search::record_exists($searchid) ) {
-                    // The control row has been deleted, so we should exit.
+                // Update status. If this returns false, the record is gone so stop searching.
+                if (!$processing = $search->update_status($rowcount, $matches)) {
                     break 2;
                 }
-                $search->update_status($rowcount, $matches);
             }
         }
 
@@ -512,21 +512,10 @@ class helper {
                 mtrace(sprintf($format, $log->table, $log->column, $log->rows, $log->matches, $log->time));
             }
         }
-        if (\tool_advancedreplace\db_search::record_exists($searchid) ) {
+
+        if ($processing) {
             $search->mark_finished($matches, $output);
-            // Save as pluginfile.
-            if (!empty($matches)) {
-                $fs = get_file_storage();
-                $fileinfo = [
-                    'contextid' => \context_system::instance()->id,
-                    'component' => 'tool_advancedreplace',
-                    'filearea'  => 'search',
-                    'itemid'    => $search->get('id'),
-                    'filepath'  => '/',
-                    'filename'  => $search->get_filename(),
-                ];
-                $fs->create_file_from_pathname($fileinfo, $output);
-            }
+            $search->save_pluginfile($output);
         }
         // Remove temp file.
         if (isset($tempfile) && file_exists($output)) {
