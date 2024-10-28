@@ -179,7 +179,7 @@ class search_table extends \table_sql {
         foreach ($shards as $shard) {
             $output .= \html_writer::span($this->$function($shard->to_record()), 'text-nowrap') . '<br>';
         }
-        return format_text($output);
+        return $output;
     }
 
     /**
