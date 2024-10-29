@@ -348,25 +348,22 @@ class file_search {
      * Search for the pattern in (the subfiles of ) a zip file.
      *
      * @param array $csv Some columns to be output in the csv file.
-     * @param string $filecontents The actual bytes of the zip file.
+     * @param \stored_file $file stored_file instance.
      * @param object $criteria The searching criteria.
      * @param resource $stream The handle for the output file.
      * @return int $matchcount The number of matches found.
      */
-    public static function unzip_content(array $csv, string $filecontents, object $criteria, $stream): int {
+    public static function unzip_content(array $csv, \stored_file $file, object $criteria, $stream): int {
         static $finfo = null;
         if ($finfo == null) {
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
         }
 
-        if (strlen($filecontents) == 0) {
-            // The file is empty. There will be no match.
-            return 0;
-        }
-        $tmpfile = tempnam(sys_get_temp_dir(), 'zip');
-        file_put_contents($tmpfile, $filecontents);
-        $zip = new \ZipArchive();
         $matchcount = 0;
+        if (!$tmpzip = $file->copy_content_to_temp('tool_advancedreplace', 'zip')) {
+            return $matchcount;
+        }
+        $zip = new \ZipArchive();
         if (! empty ($criteria->zipfilenames)) {
             $namepattern = '%' . $criteria->zipfilenames . '%i';
         } else {
@@ -377,7 +374,7 @@ class file_search {
         } else {
             $skipnamepattern = '';
         }
-        if ($zip->open($tmpfile) === true) {
+        if ($zip->open($tmpzip) === true) {
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $stat = $zip->statIndex($i);
 
@@ -399,7 +396,7 @@ class file_search {
             $zip->close();
         }
         // Todo: handle exception if zip file cannot be openned.
-        unlink($tmpfile);
+        unlink($tmpzip);
         return $matchcount;
     }
 
@@ -418,6 +415,7 @@ class file_search {
         if (empty($fs)) {
             $fs = get_file_storage();
         }
+        $matchcount = 0;
         $file = $fs->get_file(
             $filerecord->contextid,
             $filerecord->component,
@@ -426,6 +424,10 @@ class file_search {
             $filerecord->filepath,
             $filerecord->filename
         );
+
+        if (!$file) {
+            return $matchcount;
+        }
 
         $csv = [
             self::CSV_FILEID    => $filerecord->id,
@@ -449,7 +451,7 @@ class file_search {
                     $matchcount = 0;
                 } else {
                     $csv[self::CSV_STRATEGY] = 'zip';
-                    $matchcount = self::unzip_content($csv, $file->get_content(), $criteria, $stream);
+                    $matchcount = self::unzip_content($csv, $file, $criteria, $stream);
                 }
                 break;
             default:
