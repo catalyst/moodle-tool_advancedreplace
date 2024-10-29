@@ -122,6 +122,9 @@ class file_search {
     */
     const CSV_MATCH     = 14;
 
+    /** @var int Chunk size for splitting. 10MB to make border cases rare. */
+    const CHUNK_SIZE = 10 * 1024 * 1024;
+
     /**
      * Transforms a file record into critera for a where clause
      * @param \tool_advancedreplace\files $record
@@ -345,6 +348,45 @@ class file_search {
     }
 
     /**
+     * Handles processing of a grep search by splitting files into smaller chunks when required.
+     *
+     * @param array $csv Some columns to be output in the csv file.
+     * @param \stored_file|\ZipArchive $file The file or zip archive.
+     * @param object $criteria The regular expression to be matched.
+     * @param resource $stream The stream handle for the output file.
+     * @param array $zipstat information about the file inside a zip full.
+     * @return int $matchcount The number of matches found.
+     */
+    public static function grep_processor($csv, $file, $criteria, $stream, $zipstat = []) {
+        $storedfile = $file instanceof \stored_file;
+
+        // For files smaller than chunk size, just open them directly.
+        $filesize = $storedfile ? $file->get_filesize() : $zipstat['size'];
+        if ($filesize < self::CHUNK_SIZE) {
+            $content = $storedfile ? $file->get_content() : $file->getFromIndex($zipstat['index']);
+            return self::grep_content($csv, $content, $criteria, $stream);
+        }
+
+        // For large files, use a file handle stream instead.
+        $matchcount = 0;
+        $handle = $storedfile ? $file->get_content_file_handle() : $file->getStream($file->getNameIndex($zipstat['index']));
+        if (empty($handle)) {
+            return $matchcount;
+        }
+
+        $prev = '';
+        while (!feof($handle)) {
+            // Prepend the last few characters to the next iteration so no border cases are missed.
+            $chunk = $prev . fread($handle, self::CHUNK_SIZE);
+            $matchcount += self::grep_content($csv, $chunk, $criteria, $stream);
+            $prev = substr($chunk, -100);
+        }
+
+        fclose($handle);
+        return $matchcount;
+    }
+
+    /**
      * Search for the pattern in (the subfiles of ) a zip file.
      *
      * @param array $csv Some columns to be output in the csv file.
@@ -389,9 +431,8 @@ class file_search {
                         continue;
                     }
                 }
-
                 $csv[self::CSV_INTERNAL] = $stat['name'];
-                $matchcount += self::grep_content($csv, $zip->getFromIndex($i), $criteria, $stream);
+                $matchcount += self::grep_processor($csv, $zip, $criteria, $stream, $stat);
             }
             $zip->close();
         }
@@ -447,15 +488,13 @@ class file_search {
         switch ($filerecord->mimetype) {
             case 'application/zip.h5p':
             case 'application/zip':
-                if (empty($criteria->openzips)) {
-                    $matchcount = 0;
-                } else {
+                if (!empty($criteria->openzips)) {
                     $csv[self::CSV_STRATEGY] = 'zip';
                     $matchcount = self::unzip_content($csv, $file, $criteria, $stream);
                 }
                 break;
             default:
-                $matchcount = self::grep_content($csv, $file->get_content(), $criteria, $stream);
+                $matchcount = self::grep_processor($csv, $file, $criteria, $stream);
                 break;
         }
         return $matchcount;
