@@ -278,38 +278,44 @@ class file_search {
         $parent->set('progress', 100);
         $parent->update();
 
-        // Copy data into one csv.
-        $dir = make_request_directory();
-        $output = $dir . '/' . $parent->get_filename();
-        $outputstream = fopen($output, 'w');
+        if (!empty($matches)) {
+            // Copy data into one csv.
+            $dir = make_request_directory();
+            $outputpath = $dir . '/' . $parent->get_filename();
+            $output = fopen($outputpath, 'w');
+            $firstfile = true;
+            foreach ($files as $file) {
+                if (!$input = fopen($file, 'r')) {
+                    continue;
+                }
 
-        $firstfile = true;
-        foreach ($files as $file) {
-            if (($input = fopen($file, 'r')) !== false) {
-                $row = 0;
-                while (($data = fgetcsv($input)) !== false) {
-                    // Only include header for first file.
-                    if ($firstfile || $row > 0) {
-                        fputcsv($outputstream, $data);
-                    }
-                    $row++;
+                // Read and discard the header from later files.
+                if (!$firstfile) {
+                    fgets($input);
+                }
+
+                // Pass the rest of the input to the output.
+                while (!feof($input)) {
+                    $buffer = fread($input, 8192);
+                    fwrite($output, $buffer);
                 }
                 fclose($input);
+                $firstfile = false;
             }
-            $firstfile = false;
-        }
+            fclose($output);
 
-        // Create new pluginfile.
-        $fs = get_file_storage();
-        $fileinfo = [
-            'contextid' => \context_system::instance()->id,
-            'component' => 'tool_advancedreplace',
-            'filearea'  => 'files',
-            'itemid'    => $parent->get('id'),
-            'filepath'  => '/',
-            'filename'  => $parent->get_filename(),
-        ];
-        $fs->create_file_from_pathname($fileinfo, $output);
+            // Create new pluginfile.
+            $fs = get_file_storage();
+            $fileinfo = [
+                'contextid' => \context_system::instance()->id,
+                'component' => 'tool_advancedreplace',
+                'filearea'  => 'files',
+                'itemid'    => $parent->get('id'),
+                'filepath'  => '/',
+                'filename'  => $parent->get_filename(),
+            ];
+            $fs->create_file_from_pathname($fileinfo, $outputpath);
+        }
 
         // Remove old temp files.
         foreach ($files as $file) {
