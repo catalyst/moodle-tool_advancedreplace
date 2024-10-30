@@ -184,5 +184,95 @@ final class file_search_test extends \advanced_testcase {
 
     }
 
+    /**
+     * Data provider for test_get_id_from_csv().
+     *
+     * @return array
+     */
+    public static function get_id_from_csv_provider(): array {
+        return [
+            [0, 'Not enough columns'],
+            [0, 'one,two,three,four,five,not,integers'],
+            [0, '1,2,3,string'],
+            [17, '17,two,three,10'],
+        ];
+    }
+
+    /**
+     * Test get_id_from_csv
+     *
+     * @dataProvider get_id_from_csv_provider
+     * @covers \tool_advancedreplace\file_search::get_id_from_csv
+     * @param int $expectedid The expected result.
+     * @param string $line The line of csv file to be decoded.
+     * @return void
+     */
+    public function test_get_id_from_csv(int $expectedid, string $line): void {
+        $id = file_search::get_id_from_csv($line);
+        $this->assertEquals($expectedid, $id);
+    }
+
+    /**
+     * Data provider for test_resume().
+     *
+     * @return array
+     */
+    public static function resume_provider(): array {
+        return [
+            [
+                0, 0,
+                'Not enough lines',
+                'Not enough lines',
+            ],
+            [
+                0, 0,
+                "header,row\nrow,2\n'one,two,three,four,five,not,integers'",
+                "header,row\nrow,2\n'one,two,three,four,five,not,integers'",
+            ],
+            [
+                103, 2,
+                "header\n101,2,3,4\n102,2,3,4\n103,2,3,4",
+                "header\n101,2,3,4\n102,2,3,4\n",
+            ],
+            [
+                203, 2,
+                "header\n201,2,3,4\n202,2,3,4\n203,2,3,4\nbad line",
+                "header\n201,2,3,4\n202,2,3,4\n",
+            ],
+            [
+                203, 2,
+                "header\n201,2,3,4\n202,2,3,4\n203,2,3,4\n204,0,0,half line",
+                "header\n201,2,3,4\n202,2,3,4\n",
+            ],
+            [
+                0, 0,
+                "header\n201,2,3,4\n202,2,3,4\n203,2,3,4\n204,0,0,half line\ntwo bad lines",
+                "header\n201,2,3,4\n202,2,3,4\n203,2,3,4\n204,0,0,half line\ntwo bad lines",
+            ],
+        ];
+    }
+
+    /**
+     * Test resume
+     *
+     * @dataProvider resume_provider
+     * @covers \tool_advancedreplace\file_search::resume
+     * @param int $expectedresumeid The expected result.
+     * @param int $expectedmatchcount The expected result.
+     * @param string $csvdata The csv file to be tested.
+     * @param string $expecteddata The expected result.
+     * @return void
+     */
+    public function test_resume(int $expectedresumeid, int $expectedmatchcount, string $csvdata, string $expecteddata) {
+        $tempdir = make_request_directory('unittest_temp');
+        $tempfile = $tempdir . '/mytempfile.csv';
+        file_put_contents($tempfile, $csvdata);
+        [$resumeid, $matchcount] = file_search::resume($tempfile);
+        $newdata = file_get_contents($tempfile);
+        $this->assertEquals($expecteddata, $newdata);
+        $this->assertEquals($expectedresumeid, $resumeid);
+        $this->assertEquals($expectedmatchcount, $matchcount);
+    }
+
 }
 

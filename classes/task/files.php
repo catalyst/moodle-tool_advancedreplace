@@ -48,7 +48,7 @@ class files extends \core\task\adhoc_task {
             return self::spawn_shards($record);
         }
 
-        \tool_advancedreplace\file_search::files($record, '', $data->limitfrom ?? 0, $data->limitnum ?? 0);
+        \tool_advancedreplace\file_search::files($record, '', $data->startid ?? 0, $data->endid ?? 0);
     }
 
     /**
@@ -63,16 +63,17 @@ class files extends \core\task\adhoc_task {
         $numshards = $record->get('shards');
         $timestart = time();
 
-        // Get the total number of files.
-        $criteria = \tool_advancedreplace\file_search::get_criteria($record);
-        [$whereclause, $params] = \tool_advancedreplace\file_search::make_where_clause($criteria);
-        $totalfiles = $DB->count_records_select('files', $whereclause, $params);
+        // The sharding will be controlled by ranges of the id column of the mdl_files table.
+        // Here we implement a simple division. In future we could use WHERE clause to choose more even break points.
+
+        $maxid = $DB->get_field_sql('SELECT MAX(id) FROM {files}');
 
         // Create and spawn new tasks.
         $search = new \tool_advancedreplace\files($searchid);
         $basedata = $search->copy_data(true);
-        $limitfrom = 0;
-        $limitnum = ceil($totalfiles / $numshards);
+        $shardsize = ceil($maxid / $numshards);
+        $startid = 0;
+        $endid = $startid + $shardsize - 1;
         $shardnum = 0;
         while ($shardnum < $numshards) {
             $shardnum++;
@@ -82,11 +83,12 @@ class files extends \core\task\adhoc_task {
 
             // Remove the limit on the last shard.
             if ($shardnum === $numshards) {
-                $limitnum = 0;
+                $endid = $maxid;
             }
 
-            $shard->queue_task($limitfrom, $limitnum);
-            $limitfrom += $limitnum;
+            $shard->queue_task($startid, $endid);
+            $startid += $shardsize;
+            $endid += $shardsize;
         }
 
         // Update the start time on the parent.
