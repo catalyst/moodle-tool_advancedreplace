@@ -657,7 +657,28 @@ class helper {
             default:
                     throw new moodle_exception(get_string('errorcolumntypenotsupported', 'tool_advancedreplace'));
         }
-                $DB->execute($sql, $params);
+        $DB->execute($sql, $params);
+    }
+
+    /**
+     * Read the last line of a file.
+     * @param string $filename Name of file to be read.
+     * @return string $lastline The last line of the file.
+     * @return int $linecount The number of lines in the file.
+     */
+    public static function read_last_line(string $filename) {
+        $lastline = '';
+        $linecount = 0;
+        if (file_exists($filename)) {
+            $file = fopen($filename, 'r');
+            $linecount = 0;
+
+            while (false != ($buffer = fgets($file))) {
+                $linecount++;
+                $lastline = $buffer;
+            }
+            fclose($file);
+        }
+        return [$lastline, $linecount];
     }
 }
-

@@ -490,5 +490,4 @@ final class helper_test extends \advanced_testcase {
         $this->find_module('assign', $assign->id);
 
     }
-
 }

@@ -151,17 +151,20 @@ class file_search {
      *
      * @param \tool_advancedreplace\files $record
      * @param string $output path
-     * @param int $limitfrom limit for sql
-     * @param int $limitnum limit for sql
+     * @param int $startid minimum id for sql
+     * @param int $endid maximum id for sql
+     * @param bool $finalshard True if this is the ladt shard
      * @return void
      */
-    public static function files(files $record, string $output = '', int $limitfrom = 0, int $limitnum = 0) {
+    public static function files(files $record, string $output = '',
+            int $startid = 0, int $endid = 0, bool $finalshard = false) {
         global $DB;
         \core_php_time_limit::raise();
         raise_memory_limit(MEMORY_HUGE);
         $criteria = self::get_criteria($record);
 
         $id = $record->get('id');
+        $logmessage = "Advanced search in files, job $id.";
         $shard = $record->is_shard();
         $filename = $record->get_filename();
         // Create a shared temp output directory.
@@ -171,23 +174,50 @@ class file_search {
             $output = $dir . '/' . $record->get_temp_filename();
         }
 
-        $stream = fopen($output, 'w');
-        $columnheaders = [
-            'fileid', 'courseid', 'shortname', 'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
-            'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
-        ];
-        fputcsv($stream, $columnheaders);
-
         [$whereclause, $params] = self::make_where_clause($criteria);
+        // If we are running a shard, then restrict the range of id.
+        if ( ! empty($startid) || ! empty($endid)) {
+            if (empty($finalshard)) {
+                $logmessage .= " Shard from $startid to $endid.";
+                $whereclause .= ' AND f.id between :startid and :endid';
+                $params['startid'] = $startid;
+                $params['endid'] = $endid;
+            } else {
+                $logmessage .= " Final shard from $startid.";
+                $whereclause .= ' AND f.id >= :startid';
+                $params['startid'] = $startid;
+            }
+        }
+
+        // If the output file already exists, try to resume.
+        if (file_exists($output)) {
+            // This must be a resumed job. We need to append to previous output.
+            [$resumeid, $matchcount] = self::resume($output);
+        } else {
+            $resumeid = 0;
+            $matchcount = 0;
+        }
+        if ( ! empty($resumeid)) {
+            $logmessage .= " Resume from $resumeid.";
+            $stream = fopen($output, 'a');
+            $whereclause .= ' AND f.id >= :resumeid ';
+            $params['resumeid'] = $resumeid;
+        } else {
+            $stream = fopen($output, 'w');
+            $columnheaders = [
+                'fileid', 'courseid', 'shortname', 'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
+                'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
+            ];
+            fputcsv($stream, $columnheaders);
+        }
+
+        mtrace($logmessage);
         $record->set('timestart', time());
         $updatetime = time();
         $updatepercent = 0;
-        $matchcount = 0;
         $filecount = 0;
-        $totalfiles = $DB->count_records_select('files', $whereclause, $params);
-        if (!empty($limitnum)) {
-            $totalfiles = min($totalfiles, $limitnum);
-        }
+        $total = $DB->get_record_sql("SELECT COUNT('x') total FROM {files} f WHERE " . $whereclause, $params);
+        $totalfiles = $total->total;
         $sql = "
             SELECT
                 f.id, f.component, f.filearea, f.contextid, f.itemid, f.filename, f.filepath, f.mimetype,
@@ -200,9 +230,9 @@ class file_search {
                                                WHEN ctx.contextlevel = 70 THEN cm.course
                                            END
             WHERE $whereclause
-            ORDER BY f.component, f.filearea, f.contextid, f.itemid, f.id
+            ORDER BY f.id
         ";
-        $fileset = $DB->get_recordset_sql($sql, $params, $limitfrom, $limitnum);
+        $fileset = $DB->get_recordset_sql($sql, $params);
         foreach ($fileset as $filerecord) {
             $matchcount += self::search_file($filerecord, $criteria, $stream);
             $filecount ++;
@@ -623,6 +653,79 @@ class file_search {
         }
 
         return [$whereclause, $params];
+    }
+
+    /**
+     * Determine the id of a line from the output csv file.
+     *
+     * @param string $line of an output file.
+     */
+    public static function get_id_from_csv(string $line): int {
+        // Interpret the last line as a csv line.
+        $csv = str_getcsv($line);
+        // Check a few columns to ensure we have a valid line.
+        if (empty($csv[self::CSV_CONTEXTID])) {
+            return 0;
+        }
+        if ( ! ctype_digit($csv[self::CSV_CONTEXTID])) {
+            return 0;
+        }
+        if (empty($csv[self::CSV_FILEID])) {
+            return 0;
+        }
+        if ( ! ctype_digit($csv[self::CSV_FILEID])) {
+            return 0;
+        }
+
+        return $csv[self::CSV_FILEID];
+    }
+
+    /**
+     * Look at the previous output file to decide how to resume.
+     *
+     * @param string $filename
+     * @return int $resumeid The first id that should be scanned.
+     * @return int $matchcount The number of matches left in the file.
+     */
+    public static function resume(string $filename): array {
+        if ( ! file_exists($filename)) {
+            return [0, 0];
+        }
+
+        $lines = file($filename, FILE_IGNORE_NEW_LINES);
+        if (count($lines) < 3) {
+            // Too small to resume.
+            return [0, 0];
+        }
+        $lastline = end($lines);
+        $resumeid = self::get_id_from_csv($lastline);
+        if (empty($resumeid)) {
+            array_pop($lines);
+            $lastline = end($lines);
+            $resumeid = self::get_id_from_csv($lastline);
+            if (empty($resumeid)) {
+                // If last two lines are bad, give up.
+                return [0, 0];
+            }
+        }
+        // Now remove all lines that match this id.
+        while (true) {
+            array_pop($lines);
+            $line = end($lines);
+            $lineid = self::get_id_from_csv($line);
+            if ($lineid != $resumeid) {
+                // Leave this line in place.
+                break;
+            }
+            if ( count($lines) < 3 ) {
+                // Too small to resume.
+                return [0, 0];
+            }
+        }
+        // Re-write the file, without the matched id lines.
+        file_put_contents($filename, implode(PHP_EOL, $lines) . PHP_EOL);
+        $matchcount = count($lines) - 1;
+        return [$resumeid, $matchcount];
     }
 }
 

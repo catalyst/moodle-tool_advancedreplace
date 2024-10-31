@@ -76,19 +76,21 @@ abstract class search extends \core\persistent {
 
     /**
      * Queues a search task to be run
-     * @param int $limitfrom where to start the search sql
-     * @param int $limitnum limit the number of sql results
+     * @param int $startid minimum id to be included
+     * @param int $endid maximum id to be included
+     * @param bool $finalshard True if this is the last shard in the group
      * @return bool true if the task was queued
      */
-    public function queue_task(int $limitfrom = 0, int $limitnum = 0): bool {
+    public function queue_task(int $startid = 0, int $endid = 0, bool $finalshard=false): bool {
         $adhoctask = new $this->adhoctask;
         $customdata = [
             'searchid' => $this->get('id'),
         ];
         // If we have either limits we should include both.
-        if (!empty($limitfrom) || !empty($limitnum)) {
-            $customdata['limitfrom'] = $limitfrom;
-            $customdata['limitnum'] = $limitnum;
+        if (!empty($startid) || !empty($endid)) {
+            $customdata['startid'] = $startid;
+            $customdata['endid'] = $endid;
+            $customdata['finalshard'] = $finalshard;
         }
         $adhoctask->set_custom_data($customdata);
         return \core\task\manager::queue_adhoc_task($adhoctask);
