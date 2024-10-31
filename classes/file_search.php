@@ -164,7 +164,7 @@ class file_search {
         $id = $record->get('id');
         $shard = $record->is_shard();
         $filename = $record->get_filename();
-        // Create temp output directory.
+        // Create a shared temp output directory.
         if (!$output) {
             $tempfile = true;
             $dir = make_temp_directory('tool_advancedreplace');
@@ -403,14 +403,22 @@ class file_search {
      */
     public static function unzip_content(array $csv, \stored_file $file, object $criteria, $stream): int {
         static $finfo = null;
+        static $dir = null;
         if ($finfo == null) {
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
         }
+        if ($dir === null) {
+            $dir = make_request_directory();
+        }
 
+        // Copy zip file to local temp.
         $matchcount = 0;
-        if (!$tmpzip = $file->copy_content_to_temp('tool_advancedreplace', 'zip')) {
+        $tmpzip = tempnam($dir, 'zip');
+        if (!$tmpzip || !$file->copy_content_to($tmpzip)) {
+            @unlink($tmpzip);
             return $matchcount;
         }
+
         $zip = new \ZipArchive();
         if (! empty ($criteria->zipfilenames)) {
             $namepattern = '%' . $criteria->zipfilenames . '%i';
