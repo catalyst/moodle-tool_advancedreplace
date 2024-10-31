@@ -48,7 +48,7 @@ class files extends \core\task\adhoc_task {
             return self::spawn_shards($record);
         }
 
-        \tool_advancedreplace\file_search::files($record, '', $data->startid ?? 0, $data->endid ?? 0);
+        \tool_advancedreplace\file_search::files($record, '', $data->startid ?? 0, $data->endid ?? 0, $data->finalshard ?? false);
     }
 
     /**
@@ -73,22 +73,16 @@ class files extends \core\task\adhoc_task {
         $basedata = $search->copy_data(true);
         $shardsize = ceil($maxid / $numshards);
         $startid = 0;
-        $endid = $startid + $shardsize - 1;
         $shardnum = 0;
         while ($shardnum < $numshards) {
             $shardnum++;
+            $startid = ($shardnum - 1) * $shardsize;
+            $endid = $shardnum * $shardsize - 1;
+            $finalshard = ($shardnum === $numshards);
             $basedata->shardnum = $shardnum;
             $shard = new \tool_advancedreplace\files(0, $basedata);
             $shard->create();
-
-            // Remove the limit on the last shard.
-            if ($shardnum === $numshards) {
-                $endid = $maxid;
-            }
-
-            $shard->queue_task($startid, $endid);
-            $startid += $shardsize;
-            $endid += $shardsize;
+            $shard->queue_task($startid, $endid, $finalshard);
         }
 
         // Update the start time on the parent.

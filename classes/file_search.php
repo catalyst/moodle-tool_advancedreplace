@@ -153,15 +153,18 @@ class file_search {
      * @param string $output path
      * @param int $startid minimum id for sql
      * @param int $endid maximum id for sql
+     * @param bool $finalshard True if this is the ladt shard
      * @return void
      */
-    public static function files(files $record, string $output = '', int $startid = 0, int $endid = 0) {
+    public static function files(files $record, string $output = '',
+            int $startid = 0, int $endid = 0, bool $finalshard = false) {
         global $DB;
         \core_php_time_limit::raise();
         raise_memory_limit(MEMORY_HUGE);
         $criteria = self::get_criteria($record);
 
         $id = $record->get('id');
+        $logmessage = "Advanced search in files, job $id.";
         $shard = $record->is_shard();
         $filename = $record->get_filename();
         // Create temp output directory.
@@ -174,9 +177,16 @@ class file_search {
         [$whereclause, $params] = self::make_where_clause($criteria);
         // If we are running a shard, then restrict the range of id.
         if ( ! empty($startid) || ! empty($endid)) {
-            $whereclause .= ' AND f.id between :startid and :endid';
-            $params['startid'] = $startid;
-            $params['endid'] = $endid;
+            if (empty($finalshard)) {
+                $logmessage .= " Shard from $startid to $endid.";
+                $whereclause .= ' AND f.id between :startid and :endid';
+                $params['startid'] = $startid;
+                $params['endid'] = $endid;
+            } else {
+                $logmessage .= " Final shard from $startid.";
+                $whereclause .= ' AND f.id >= :startid';
+                $params['startid'] = $startid;
+            }
         }
 
         // If the output file already exists, try to resume.
@@ -188,6 +198,7 @@ class file_search {
             $matchcount = 0;
         }
         if ( ! empty($resumeid)) {
+            $logmessage .= " Resume from $resumeid.";
             $stream = fopen($output, 'a');
             $whereclause .= ' AND f.id >= :resumeid ';
             $params['resumeid'] = $resumeid;
@@ -200,13 +211,6 @@ class file_search {
             fputcsv($stream, $columnheaders);
         }
 
-        $logmessage = "Advanced search in files, job $id.";
-        if ( ! empty($startid) || ! empty($endid)) {
-            $logmessage .= " Shard from $startid to $endid.";
-        }
-        if ( ! empty($resumeid)) {
-            $logmessage .= " Resume from $resumeid.";
-        }
         mtrace($logmessage);
         $record->set('timestart', time());
         $updatetime = time();
@@ -711,7 +715,7 @@ class file_search {
             }
         }
         // Re-write the file, without the matched id lines.
-        file_put_contents($filename, implode("\n", $lines) . "\n");
+        file_put_contents($filename, implode(PHP_EOL, $lines) . PHP_EOL);
         $matchcount = count($lines) - 1;
         return [$resumeid, $matchcount];
     }
