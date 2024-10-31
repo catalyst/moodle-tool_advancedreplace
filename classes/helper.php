@@ -433,7 +433,7 @@ class helper {
      * @return void
      */
     public static function search_db(db_search $search, string $output = ''): void {
-        // Create temp output directory.
+        // Create a shared temp output directory.
         if (!$output) {
             $tempfile = true;
             $dir = make_temp_directory('tool_advancedreplace');
