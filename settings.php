@@ -36,7 +36,7 @@ if ($hassiteconfig) {
         new admin_externalpage(
             'tool_advancedreplace_search',
             get_string('searchpagename', 'tool_advancedreplace'),
-            new moodle_url('/admin/tool/advancedreplace/search.php'),
+            new moodle_url('/admin/tool/advancedreplace/db_search.php'),
         )
     );
 

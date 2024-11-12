@@ -25,7 +25,7 @@
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-$url = new moodle_url('/admin/tool/advancedreplace/search.php');
+$url = new moodle_url('/admin/tool/advancedreplace/db_search.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_search');
@@ -47,7 +47,7 @@ if (isset($delete)) {
 }
 
 if (isset($id)) {
-    $newurl = new moodle_url('/admin/tool/advancedreplace/search.php');
+    $newurl = new moodle_url('/admin/tool/advancedreplace/db_search.php');
     $newurl->param('id', $id);
 
     $customdata = [
