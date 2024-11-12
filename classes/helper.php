@@ -22,7 +22,9 @@ require_once($CFG->libdir . '/adminlib.php');
 
 use core\exception\moodle_exception;
 use core_text;
+use csv_import_reader;
 use database_column_info;
+use progress_bar;
 use tool_advancedreplace\db_search;
 
 /**
@@ -680,5 +682,83 @@ class helper {
             fclose($file);
         }
         return [$lastline, $linecount];
+    }
+
+    /**
+     * Takes csv data and replaces all matching strings within the DB
+     * @param string $data CSV data to be read.
+     */
+    public static function handle_replace_csv(string $data) {
+        // Load the CSV content.
+        $iid = csv_import_reader::get_new_iid('tool_advancedreplace');
+        $csvimport = new csv_import_reader($iid, 'tool_advancedreplace');
+        $contentcount = $csvimport->load_csv_content($data, 'utf-8', 'comma');
+
+        if ($contentcount === false) {
+            if (CLI_SCRIPT) {
+                cli_error(get_string('errorinvalidfile', 'tool_advancedreplace'));
+            } else {
+                throw new \moodle_exception(get_string('errorinvalidfile', 'tool_advancedreplace'));
+            }
+        }
+
+        // Read the header.
+        $header = $csvimport->get_columns();
+        if (empty($header)) {
+            if (CLI_SCRIPT) {
+                cli_error(get_string('errorinvalidfile', 'tool_advancedreplace'));
+            } else {
+                throw new \moodle_exception(get_string('errorinvalidfile', 'tool_advancedreplace'));
+            }
+        }
+
+        // Check if all required columns are present, and show which ones are missing.
+        $requiredcolumns = ['table', 'column', 'id', 'match', 'replace'];
+        $missingcolumns = array_diff($requiredcolumns, $header);
+
+        if (!empty($missingcolumns)) {
+            if (CLI_SCRIPT) {
+                cli_error(get_string('errormissingfields', 'tool_advancedreplace', implode(', ', $missingcolumns)));
+            } else {
+                throw new \moodle_exception(get_string('errormissingfields', 'tool_advancedreplace',
+                    implode(', ', $missingcolumns)));
+            }
+        }
+
+        // Progress bar.
+        $progress = new progress_bar();
+        $progress->create();
+
+        // Column indexes.
+        $tableindex = array_search('table', $header);
+        $columnindex = array_search('column', $header);
+        $idindex = array_search('id', $header);
+        $matchindex = array_search('match', $header);
+        $replaceindex = array_search('replace', $header);
+
+        // Read the data and replace the strings.
+        $csvimport->init();
+        $rowcount = 0;
+        $rowskip = 0;
+        while ($record = $csvimport->next()) {
+            if (empty($record[$replaceindex])) {
+                // Skip if 'replace' is empty.
+                $rowskip++;
+            } else {
+                // Replace the string.
+                self::replace_text_in_a_record($record[$tableindex], $record[$columnindex],
+                    $record[$matchindex], $record[$replaceindex], $record[$idindex]);
+            }
+
+            // Update the progress bar.
+            $rowcount++;
+            $progress->update_full(100 * $rowcount / $contentcount, "Processed $rowcount records. Skipped $rowskip records.");
+        }
+
+        // Show progress.
+        $progress->update_full('100', "Processed $rowcount records. Skipped $rowskip records.");
+
+        $csvimport->cleanup();
+        $csvimport->close();
     }
 }
