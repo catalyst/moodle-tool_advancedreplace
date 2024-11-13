@@ -43,6 +43,15 @@ if ($hassiteconfig) {
     $ADMIN->add(
         'advancereplacefolder',
         new admin_externalpage(
+            'tool_advancedreplace_replace',
+            get_string('replacepagename', 'tool_advancedreplace'),
+            new moodle_url('/admin/tool/advancedreplace/db_replace.php'),
+        )
+    );
+
+    $ADMIN->add(
+        'advancereplacefolder',
+        new admin_externalpage(
             'tool_advancedreplace_files',
             get_string('filespagename', 'tool_advancedreplace'),
             new moodle_url('/admin/tool/advancedreplace/files.php'),

@@ -90,6 +90,7 @@ $string['lastupdated'] = 'Last updated {$a} ago';
 $string['newsearch'] = 'New search';
 $string['newreplace'] = 'New replace';
 $string['replacepageheader'] = 'Replace text stored in the DB';
+$string['replacepagename'] = 'Replace strings in the Database';
 $string['replace'] = 'Replace';
 $string['strftimedatetimemonthshort'] = '%d %b %Y, %I:%M %p';
 $string['searchdeleted'] = 'The selected search was deleted.';
