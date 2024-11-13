@@ -39,7 +39,7 @@ class search_table extends \table_sql {
      *
      * @var string
      */
-    protected $urlfragment = 'search.php';
+    protected $urlfragment = 'db_search.php';
 
     /** @var array of persistent searches */
     protected $persistent = [];
