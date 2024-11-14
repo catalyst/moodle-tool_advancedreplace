@@ -29,6 +29,11 @@ require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/lib/csvlib.class.php');
 
+global $CFG;
+$replace       = optional_param('delete', 0, PARAM_INT);
+$confirm      = optional_param('confirm', '', PARAM_BOOL);
+$csvpostcontent      = optional_param('csvpostcontent', '', PARAM_TEXT);
+
 $url = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
 $PAGE->set_url($url);
 
@@ -43,8 +48,17 @@ $form = new \tool_advancedreplace\form\replace($url->out(false), $customdata);
 echo $OUTPUT->header();
 if ($form->is_cancelled()) {
     redirect($redirect);
-} else if ($csvcontent = $form->get_file_content('csvfile')) {
-    helper::handle_replace_csv($csvcontent);
+} else if (!(get_config('tool_advancedreplace', 'allowuireplace'))) {
+    echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
+    echo html_writer::div(get_string('replace_warning', 'tool_advancedreplace'), 'alert alert-warning');
+} else if ($csvcontent = ($form->get_file_content('csvfile') ?? $csvpostcontent)) {
+    $returnurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
+    $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'csvpostcontent' => $csvcontent);
+    $deleteurl = new moodle_url($url, $optionsyes);
+    $deletebutton = new single_button($deleteurl, get_string('replace', 'tool_advancedreplace'), 'post');
+    echo $OUTPUT->confirm(get_string('replacecheck', 'tool_advancedreplace'), $deletebutton, $returnurl);
+} else if ($confirm && isset($csvpostcontent)) {
+    helper::handle_replace_csv($csvpostcontent);
 } else {
     // Display form.
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));

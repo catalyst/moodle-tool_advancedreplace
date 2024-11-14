@@ -55,11 +55,6 @@ class replace extends moodleform {
         $mform->setType('origin', PARAM_TEXT);
         $mform->setConstant('origin', 'web');
 
-        $mform->addElement('text', 'name', get_string('field_name', 'tool_advancedreplace'), $fullwidth);
-        $mform->setType('name', PARAM_RAW);
-        $mform->setDefault('name', '');
-        $mform->addElement('static', 'name_help', '', get_string("field_name_help", "tool_advancedreplace"));
-
         // File upload.
         $mform->addElement('filepicker', 'csvfile', get_string('selectfile', 'tool_advancedreplace'), null,
             ['accepted_types' => ['.csv']]);
