@@ -50,7 +50,8 @@ if ($form->is_cancelled()) {
     redirect($redirect);
 } else if (!(get_config('tool_advancedreplace', 'allowuireplace'))) {
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
-    echo html_writer::div(get_string('replace_warning', 'tool_advancedreplace'), 'alert alert-warning');
+    echo html_writer::div(get_string('replace_warning', 'tool_advancedreplace',
+        '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;'), 'alert alert-warning');
 } else if ($csvcontent = ($form->get_file_content('csvfile') ?? $csvpostcontent)) {
     $returnurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
     $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'csvpostcontent' => $csvcontent);
