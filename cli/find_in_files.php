@@ -45,13 +45,13 @@ Options:
 --skip-components=componentname  Components to skip. Separate multiple components with a comma.
                                     Example:
                                     --skip-components=core_h5p,assign_submission
---mimetypes=mimetype,mimetype   Mimetypes to be searched. Separate multipler type with commas.
-                                If empty, all mimetypes will be considred.
+--mimetypes=mimetype,mimetype   Mimetypes to be searched. Separate multiple type with commas.
+                                If empty, all mimetypes will be considered.
 --skip-mimetypes=mimetype,mimetype Mimetypes to be skipped.
---filenames=filename            Cooma-separated list of file names to be searched.
+--filenames=filename            Comma-separated list of file names to be searched.
 --skip-filenames=filename       Comma-separated list of file names to be omitted from the search.
 --skip-areas=areaname           Areas to skip. Separate multiple areas with a comma.
---openzips                      Open zip files, and search the files inside.
+--open-zips                     Open zip files, and search the files inside.
 --zip-filenames=regex           Regular expression to match filenames inside the zip.
                                     eg --zip-filenames='/content.json$'
 --skip-zip-filenames=regex      Regular expression to reject filenames inside the zip.
