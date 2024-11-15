@@ -307,7 +307,7 @@ class file_search {
             fclose($output);
 
             // Create new pluginfile.
-            $parent->save_pluginfile($output);
+            $parent->save_pluginfile($outputpath);
         }
 
         // Remove old temp files.
