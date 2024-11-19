@@ -735,8 +735,9 @@ class helper {
     /**
      * Takes csv data and replaces all matching strings within the DB
      * @param string $data CSV data to be read.
+     * @param string $type type of replace db || files.
      */
-    public static function handle_replace_csv(string $data) {
+    public static function handle_replace_csv(string $data, string $type = 'db') {
         // Load the CSV content.
         $iid = csv_import_reader::get_new_iid('tool_advancedreplace');
         $csvimport = new csv_import_reader($iid, 'tool_advancedreplace');
@@ -761,7 +762,30 @@ class helper {
         }
 
         // Check if all required columns are present, and show which ones are missing.
-        $requiredcolumns = ['table', 'column', 'id', 'match', 'replace'];
+        if ($type == 'db') {
+            $requiredcolumns = ['table', 'column', 'id', 'match', 'replace'];
+            // Column indexes.
+            $tableindex = array_search('table', $header);
+            $columnindex = array_search('column', $header);
+            $idindex = array_search('id', $header);
+            $matchindex = array_search('match', $header);
+            $replaceindex = array_search('replace', $header);
+        } else if ($type == 'files') {
+            $requiredcolumns = ['contextid', 'component', 'filearea', 'itemid', 'filepath',
+                'filename', 'replace', 'match', 'mimetype', 'internal'];
+            // Column indexes.
+            $contextidindex = array_search('contextid', $header);
+            $componentindex = array_search('component', $header);
+            $fileareaindex = array_search('filearea', $header);
+            $itemidindex = array_search('itemid', $header);
+            $filepathindex = array_search('filepath', $header);
+            $filenameindex = array_search('filename', $header);
+            $matchindex = array_search('match', $header);
+            $replaceindex = array_search('replace', $header);
+            $mimeindex = array_search('mimetype', $header);
+            $internalindex = array_search('internal', $header);
+        }
+
         $missingcolumns = array_diff($requiredcolumns, $header);
 
         if (!empty($missingcolumns)) {
@@ -777,13 +801,6 @@ class helper {
         $progress = new progress_bar();
         $progress->create();
 
-        // Column indexes.
-        $tableindex = array_search('table', $header);
-        $columnindex = array_search('column', $header);
-        $idindex = array_search('id', $header);
-        $matchindex = array_search('match', $header);
-        $replaceindex = array_search('replace', $header);
-
         // Read the data and replace the strings.
         $csvimport->init();
         $rowcount = 0;
@@ -792,10 +809,25 @@ class helper {
             if (empty($record[$replaceindex])) {
                 // Skip if 'replace' is empty.
                 $rowskip++;
-            } else {
+            } else if ($type == 'db') {
                 // Replace the string.
                 self::replace_text_in_a_record($record[$tableindex], $record[$columnindex],
                     $record[$matchindex], $record[$replaceindex], $record[$idindex]);
+            } else if ($type == 'files') {
+                $filerecord = [
+                    'contextid' => $record[$contextidindex],
+                    'component' => $record[$componentindex],
+                    'filearea' => $record[$fileareaindex],
+                    'itemid' => $record[$itemidindex],
+                    'filepath' => $record[$filepathindex],
+                    'filename' => $record[$filenameindex],
+                    'mimetype' => $record[$mimeindex],
+                ];
+
+                if (!self::replace_text_in_file($filerecord, $record[$matchindex], $record[$replaceindex],
+                    $record[$internalindex])) {
+                    $rowskip++;
+                }
             }
 
             // Update the progress bar.
@@ -826,5 +858,102 @@ class helper {
         }
         $file = reset($files);
         return $file->get_content();
+    }
+
+    /**
+     * Replace a string in a file stored in Moodle's file storage. Supports both normal files and files inside zip archives.
+     *
+     * @param array $filerecord File record
+     * @param string $match The string to search for in the file's contents.
+     * @param string $replace The string to replace the matched string with.
+     * @param string $internal The name of the internal file to modify (only used for zip files).
+     *
+     * @return bool Returns true if the string was replaced and the file updated successfully, false otherwise.
+     */
+    public static function replace_text_in_file(array $filerecord, string $match, string $replace, string $internal): bool {
+        $fs = get_file_storage();
+        $file = $fs->get_file(
+            $filerecord['contextid'],
+            $filerecord['component'],
+            $filerecord['filearea'],
+            $filerecord['itemid'],
+            $filerecord['filepath'],
+            $filerecord['filename']
+        );
+
+        if (!$file) {
+            mtrace(get_string('errorreplacingfilenotfound', 'tool_advancedreplace',
+                ['filename' => $filerecord['filename']]));
+            return false;
+        }
+
+        // Specify tmp filename to avoid unique constraint conflict.
+        $filerecord['filename'] = time();
+
+        if ($filerecord['mimetype'] == 'application/zip' || $filerecord['mimetype'] == 'application/zip.h5p') {
+            $newzip = self::replace_text_in_zip($file, $match, $replace, $internal);
+            $newfile = $fs->create_file_from_pathname($filerecord, $newzip);
+            unlink($newzip);
+        } else {
+
+            $content = $file->get_content();
+            $newcontent = str_replace($match, $replace, $content);
+            $newfile = $fs->create_file_from_string($filerecord, $newcontent);
+        }
+        if ($newfile) {
+            $file->replace_file_with($newfile);
+            $newfile->delete();
+            return true;
+        } else {
+            mtrace(get_string('errorreplacingfile', 'tool_advancedreplace',
+                ['replace' => $match, 'filename' => $filerecord['filepath']]));
+            return false;
+        }
+    }
+
+    /**
+     * Extracts a file by name from a zip archive, replaces a string, and updates the zip file.
+     *
+     * @param \stored_file $zipfile    Name of the file to extract and modify inside the zip.
+     * @param string $searchstring  The string to search for in the file's contents.
+     * @param string $replacestring The string to replace the search string with.
+     * @param string $internalfilename The file name of the internal file to be modified.
+     */
+    public static function replace_text_in_zip(\stored_file $zipfile, string $searchstring,
+                                               string $replacestring, string $internalfilename) {
+
+        // Create a temporary file path for working with the ZIP file.
+        $tempzip = make_request_directory() . '/' . $zipfile->get_filename();
+        $zipfile->copy_content_to($tempzip);
+
+        // Open and modify the ZIP file.
+        $zip = new \ZipArchive();
+        if ($zip->open($tempzip) !== true) {
+            return false;
+        }
+
+        // Check if the target file exists in the zip.
+        $fileindex = $zip->locateName($internalfilename);
+        if ($fileindex === false) {
+            $zip->close();
+            return false;
+        }
+
+        // Extract the target file's content.
+        $filecontent = $zip->getFromIndex($fileindex);
+        if ($filecontent === false) {
+            $zip->close();
+            return false;
+        }
+
+        // Replace the string in the file's contents.
+        $modifiedcontents = str_replace($searchstring, $replacestring, $filecontent);
+
+        // Delete the old file and add the modified file back to the ZIP.
+        $zip->deleteName($internalfilename);
+        $zip->addFromString($internalfilename, $modifiedcontents);
+        $zip->close();
+
+        return $tempzip;
     }
 }

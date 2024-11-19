@@ -35,6 +35,7 @@ $help =
 
 Options:
 --input=FILE                  Required. Input CSV file produced by find.php in detail mode.
+--type=db                     Type of replace database or in files. Default = 'db'
 -h, --help                    Print out this help.
 
 Example:
@@ -44,6 +45,7 @@ Example:
 list($options, $unrecognized) = cli_get_params(
     [
         'input'        => null,
+        'type'         => 'db',
         'help'         => false,
     ],
     [
@@ -63,6 +65,8 @@ if ($options['help'] || empty($options['input'])) {
     exit(0);
 }
 
+$type = $options['type'] ?? 'db';
+
 try {
     $file = validate_param($options['input'], PARAM_PATH);
 } catch (invalid_parameter_exception $e) {
@@ -77,5 +81,5 @@ if (!file_exists($file)) {
 $fp = fopen($file, 'r');
 $data = fread($fp, filesize($file));
 fclose($fp);
-helper::handle_replace_csv($data);
+helper::handle_replace_csv($data, $type);
 exit(0);

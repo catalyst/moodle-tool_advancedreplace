@@ -96,7 +96,12 @@ if (isset($id)) {
     $url->param('id', 0);
     $newurl = new \moodle_url($url, ['id' => 0]);
     $newbutton = new \single_button($newurl, get_string('newsearch', 'tool_advancedreplace'), 'GET');
+
+    $replaceurl = new moodle_url('/admin/tool/advancedreplace/file_replace.php');
+    $replacebutton = new \single_button($replaceurl, get_string('newreplace', 'tool_advancedreplace'), 'GET');
+
     echo $OUTPUT->render($newbutton);
+    echo $OUTPUT->render($replacebutton);
 }
 
 echo $OUTPUT->footer();
