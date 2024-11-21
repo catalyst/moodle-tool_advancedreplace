@@ -64,6 +64,7 @@ class files extends \core\form\persistent {
         $mform->addElement('text', 'name', get_string('field_name', self::PLUGIN), $fullwidth);
         $mform->setType('name', PARAM_RAW);
         $mform->setDefault('name', '');
+        $mform->addRule('name', get_string('maximumchars', '', 64), 'maxlength', 64, 'client');
         $mform->addElement('static', 'name_help', '', get_string('field_name_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'components', get_string("field_components", self::PLUGIN), $textareasize);

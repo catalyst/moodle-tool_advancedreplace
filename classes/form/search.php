@@ -72,6 +72,7 @@ class search extends \core\form\persistent {
         $mform->addElement('text', 'name', get_string('field_name', 'tool_advancedreplace'), $fullwidth);
         $mform->setType('name', PARAM_RAW);
         $mform->setDefault('name', '');
+        $mform->addRule('name', get_string('maximumchars', '', 64), 'maxlength', 64, 'client');
         $mform->addElement('static', 'name_help', '', get_string("field_name_help", "tool_advancedreplace"));
 
         $mform->addElement('textarea', 'tables', get_string("field_tables", "tool_advancedreplace"), $textareasize);
