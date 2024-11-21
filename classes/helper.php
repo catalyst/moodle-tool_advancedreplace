@@ -750,4 +750,22 @@ class helper {
         $csvimport->cleanup();
         $csvimport->close();
     }
+
+    /**
+     * Returns the file content of the replace csv. Required for confirmation.
+     * This should mimic handling in moodleform get_file_content()
+     * @param int $draftid
+     * @return string
+     */
+    public static function get_replace_csv_content(int $draftid): string {
+        global $USER;
+
+        $fs = get_file_storage();
+        $context = \context_user::instance($USER->id);
+        if (!$files = $fs->get_area_files($context->id, 'user', 'draft', $draftid, 'id DESC', false)) {
+            return '';
+        }
+        $file = reset($files);
+        return $file->get_content();
+    }
 }

@@ -32,7 +32,7 @@ require_once($CFG->dirroot . '/lib/csvlib.class.php');
 global $CFG;
 $replace       = optional_param('delete', 0, PARAM_INT);
 $confirm      = optional_param('confirm', '', PARAM_BOOL);
-$csvpostcontent      = optional_param('csvpostcontent', '', PARAM_TEXT);
+$draftid      = optional_param('draftid', '', PARAM_TEXT);
 
 $url = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
 $PAGE->set_url($url);
@@ -52,14 +52,16 @@ if ($form->is_cancelled()) {
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
     echo html_writer::div(get_string('replace_warning', 'tool_advancedreplace',
         '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;'), 'alert alert-warning');
-} else if ($csvcontent = ($form->get_file_content('csvfile') ?? $csvpostcontent)) {
+} else if ($data = $form->get_data()) {
     $returnurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
-    $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'csvpostcontent' => $csvcontent);
+    $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'draftid' => $data->csvfile);
     $deleteurl = new moodle_url($url, $optionsyes);
     $deletebutton = new single_button($deleteurl, get_string('replace', 'tool_advancedreplace'), 'post');
     echo $OUTPUT->confirm(get_string('replacecheck', 'tool_advancedreplace'), $deletebutton, $returnurl);
-} else if ($confirm && isset($csvpostcontent)) {
-    helper::handle_replace_csv($csvpostcontent);
+} else if ($confirm && !empty($draftid)) {
+    require_sesskey();
+    $contents = helper::get_replace_csv_content($draftid);
+    helper::handle_replace_csv($contents);
 } else {
     // Display form.
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));

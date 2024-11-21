@@ -58,6 +58,7 @@ class replace extends moodleform {
         // File upload.
         $mform->addElement('filepicker', 'csvfile', get_string('selectfile', 'tool_advancedreplace'), null,
             ['accepted_types' => ['.csv']]);
+        $mform->addRule('csvfile', get_string('required'), 'required', null, 'client');
 
         $this->add_action_buttons(true, get_string('replace', 'tool_advancedreplace'));
 
