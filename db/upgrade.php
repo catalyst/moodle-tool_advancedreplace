@@ -165,5 +165,25 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024102801, 'tool', 'advancedreplace');
     }
 
+    if ($oldversion < 2024112100) {
+
+        // Changing precision of field name on table tool_advancedreplace_search to (64).
+        $table = new xmldb_table('tool_advancedreplace_search');
+        $field = new xmldb_field('name', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null, 'userid');
+
+        // Launch change of precision for field name.
+        $dbman->change_field_precision($table, $field);
+
+        // Changing precision of field name on table tool_advancedreplace_files to (64).
+        $table = new xmldb_table('tool_advancedreplace_files');
+        $field = new xmldb_field('name', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null, 'userid');
+
+        // Launch change of precision for field name.
+        $dbman->change_field_precision($table, $field);
+
+        // Advancedreplace savepoint reached.
+        upgrade_plugin_savepoint(true, 2024112100, 'tool', 'advancedreplace');
+    }
+
     return true;
 }
