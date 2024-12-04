@@ -19,6 +19,8 @@ namespace tool_advancedreplace;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->dirroot . '/question/engine/bank.php');
+
 
 use core\exception\moodle_exception;
 use core_text;
@@ -175,7 +177,7 @@ class helper {
         foreach ($searchlist as $table => $columns) {
             $actualcolumns = self::get_columns($search, $table, $columns);
             sort($actualcolumns);
-            $count += count($actualcolumns) * ($tablerowcounts[$table] ?? 1);
+            $count += count($actualcolumns) * (($tablerowcounts[$table] ?? 1) ?: 1);
             if (!empty($actualcolumns)) {
                 $actualsearchlist[$table] = $actualcolumns;
             }
@@ -272,6 +274,13 @@ class helper {
         $wheresql = [];
         $params = [];
 
+        static $supportedtablemappings = [
+            'course_sections' => ['t.id as id, section', ''],
+            'book_chapters' => ['t.bookid as id, t.id as chapterid,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
+            'forum_posts' => ['t.id as id,', 'LEFT JOIN {forum_discussions} t2 ON t.discussion = t2.id
+                 LEFT JOIN {forum} f ON t2.forum = f.id'],
+        ];
+
         $regex = $search->get('regex');
         $prematch = $search->get('prematch');
 
@@ -297,6 +306,15 @@ class helper {
                            c.shortname as courseshortname
                       FROM {".$table."} $tablealias
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
+                     WHERE $wheresql";
+        } else if (isset($supportedtablemappings[$table])) {
+            $sql = "SELECT {$supportedtablemappings[$table][0]}
+                           $tablealias.$columnname,
+                           c.id as courseid,
+                           c.shortname as courseshortname
+                      FROM {".$table."} $tablealias
+                 {$supportedtablemappings[$table][1]}
+                 LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
         } else {
             $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $wheresql";
@@ -361,7 +379,17 @@ class helper {
         $linkfunction = self::find_link_function($table, $column->name);
         foreach ($records as $record) {
             if (!empty($linkfunction)) {
-                $linkstring = $linkfunction($record);
+                if ($table == 'question') {
+                    $question = \question_bank::load_question($record->id);
+                    $category = $DB->get_record('question_categories', ['id' => $question->category], '*', MUST_EXIST);
+                    $context = \context::instance_by_id($category->contextid);
+                    $course = $DB->get_record('course', array('id' => $context->instanceid));
+                    $record->courseid = $course->id;
+                    $record->courseshortname = $course->shortname;
+                    $linkstring = $linkfunction($record, $course->id);
+                } else {
+                    $linkstring = $linkfunction($record);
+                }
             }
 
             if (!$regex) {
@@ -540,12 +568,33 @@ class helper {
                 $url = new \moodle_url('/course/view.php', ['id' => $record->id]);
                 return $url->out();
             },
+            'course_section' => function($record) {
+                global $DB;
+                $coursesections = $DB->get_record('course_sections', ['id' => $record->id], 'section');
+                $url = new \moodle_url('/course/view.php#section-'.$coursesections->section, ['id' => $record->courseid]);
+                return $url->out();
+            },
+            'question' => function($record, $courseid = null) {
+                $url = new \moodle_url('/question/bank/previewquestion/preview.php',
+                    ['id' => $record->id, 'courseid' => $courseid]);
+                return $url->out(false);
+            },
+            'forum_post' => function($record) {
+                $url = new \moodle_url('/mod/forum/discuss.php', ['d' => $record->id]);
+                return $url->out(false);
+            },
         ];
 
         static $linkmappings = [
             'course:fullname' => 'course',
             'course:shortname' => 'course',
             'course:summary' => 'course',
+            'course_sections:name' => 'course_section',
+            'course_sections:summary' => 'course_section',
+            'question:name' => 'question',
+            'question:questiontext' => 'question',
+            'forum_posts:subject' => 'forum_post',
+            'forum_posts:message' => 'forum_post',
         ];
 
         static $modulefunctions = null;
@@ -559,6 +608,9 @@ class helper {
                     $coursemodule = $DB->get_record('course_modules', ['module' => $module->id, 'instance' => $record->id], 'id');
                     if (empty($coursemodule)) {
                         return null;
+                    } else if ($module->name == 'book' && isset($record->chapterid)) {
+                            $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'chapterid' => $record->chapterid]);
+                            return $url->out(false);
                     } else {
                         $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id]);
                         return $url->out();
@@ -576,9 +628,16 @@ class helper {
             }
         }
 
+        static $moduelmappings = [
+            'book_chapters' => 'book',
+            'lesson_pages' => 'lesson',
+        ];
+
         // Consider links based on the table name being a module.
         if (isset($modulefunctions[$table])) {
             return $modulefunctions[$table];
+        } else if (isset($moduelmappings[$table]) && isset($modulefunctions[$moduelmappings[$table]])) {
+            return $modulefunctions[$moduelmappings[$table]];
         }
 
         return null;
