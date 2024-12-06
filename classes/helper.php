@@ -279,6 +279,7 @@ class helper {
             'book_chapters' => ['t.bookid as id, t.id as chapterid,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
             'forum_posts' => ['t.id as id,', 'LEFT JOIN {forum_discussions} t2 ON t.discussion = t2.id
                  LEFT JOIN {forum} f ON t2.forum = f.id'],
+            'lesson_pages' => ['t.lessonid as id, t.id as pageid,', 'LEFT JOIN {lesson} t2 ON t.lessonid = t2.id'],
         ];
 
         $regex = $search->get('regex');
@@ -611,6 +612,9 @@ class helper {
                     } else if ($module->name == 'book' && isset($record->chapterid)) {
                             $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'chapterid' => $record->chapterid]);
                             return $url->out(false);
+                    } else if ($module->name == 'lesson'  && isset($record->pageid)) {
+                        $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'pageid' => $record->pageid]);
+                        return $url->out(false);
                     } else {
                         $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id]);
                         return $url->out();
