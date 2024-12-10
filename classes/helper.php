@@ -276,10 +276,10 @@ class helper {
 
         static $supportedtablemappings = [
             'course_sections' => ['t.id as id, section', ''],
-            'book_chapters' => ['t.bookid as id, t.id as chapterid,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
+            'book_chapters' => ['t.bookid as moduleid, t.id as id,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
             'forum_posts' => ['t.id as id,', 'LEFT JOIN {forum_discussions} t2 ON t.discussion = t2.id
                  LEFT JOIN {forum} f ON t2.forum = f.id'],
-            'lesson_pages' => ['t.lessonid as id, t.id as pageid,', 'LEFT JOIN {lesson} t2 ON t.lessonid = t2.id'],
+            'lesson_pages' => ['t.lessonid as moduleid, t.id as id,', 'LEFT JOIN {lesson} t2 ON t.lessonid = t2.id'],
         ];
 
         $regex = $search->get('regex');
@@ -606,14 +606,14 @@ class helper {
             foreach ($modules as $module) {
                 $modulefunctions[$module->name] = function($record) use ($module) {
                     global $DB;
-                    $coursemodule = $DB->get_record('course_modules', ['module' => $module->id, 'instance' => $record->id], 'id');
+                    $coursemodule = $DB->get_record('course_modules', ['module' => $module->id, 'instance' => ($record->moduleid ?? $record->id)], 'id');
                     if (empty($coursemodule)) {
                         return null;
-                    } else if ($module->name == 'book' && isset($record->chapterid)) {
-                            $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'chapterid' => $record->chapterid]);
+                    } else if ($module->name == 'book' && isset($record->moduleid)) {
+                            $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'chapterid' => $record->id]);
                             return $url->out(false);
-                    } else if ($module->name == 'lesson'  && isset($record->pageid)) {
-                        $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'pageid' => $record->pageid]);
+                    } else if ($module->name == 'lesson'  && isset($record->moduleid)) {
+                        $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'pageid' => $record->id]);
                         return $url->out(false);
                     } else {
                         $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id]);
@@ -657,61 +657,35 @@ class helper {
      * @param int $id The id of the record to restrict the search.
      */
     public static function replace_text_in_a_record(string $table, string $columnname,
-                                                    string $search, string $replace, int $id) {
-
-        $column = self::get_column_info($table, $columnname);
-        self::replace_all_text($table, $column, $search, $replace, ' AND id = ?', [$id]);
-    }
-
-    /**
-     * A clone of the core function replace_all_text.
-     * We have optional id parameter to restrict the search.
-     *
-     * @since Moodle 2.6.1
-     * @param string $table name of the table
-     * @param database_column_info $column
-     * @param string $search text to search for
-     * @param string $replace text to replace with
-     * @param string $wheresql additional where clause
-     * @param array $whereparams parameters for the where clause
-     */
-    private static function replace_all_text($table, database_column_info $column, string $search, string $replace,
-                                             string $wheresql = '', array $whereparams = []) {
+                                                    string $search, string $replace, int $id) : bool {
         global $DB;
 
-        if (!$DB->replace_all_text_supported()) {
-            throw new moodle_exception(get_string('errorreplacetextnotsupported', 'tool_advancedreplace'));
-        }
+        $column = self::get_column_info($table, $columnname);
 
         // Enclose the column name by the proper quotes if it's a reserved word.
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
 
-        $searchsql = $DB->sql_like($columnname, '?');
-        $searchparam = '%'.$DB->sql_like_escape($search).'%';
+        $record = $DB->get_record($table, array('id' => $id), $columnname);
 
-        // Additional where clause.
-        $searchsql .= $wheresql;
-        $params = array_merge([$search, $replace, $searchparam], $whereparams);
-
-        switch ($column->meta_type) {
-            case 'C':
-                if (core_text::strlen($search) < core_text::strlen($replace)) {
-                    $colsize = $column->max_length;
-                    $sql = "UPDATE {".$table."}
-                               SET $columnname = " . $DB->sql_substr("REPLACE(" . $columnname . ", ?, ?)", 1, $colsize) . "
-                             WHERE $searchsql";
-                    break;
-                }
-                // Otherwise, do not break and use the same query as in the 'X' case.
-            case 'X':
-                $sql = "UPDATE {".$table."}
-                           SET $columnname = REPLACE($columnname, ?, ?)
-                         WHERE $searchsql";
-                    break;
-            default:
-                    throw new moodle_exception(get_string('errorcolumntypenotsupported', 'tool_advancedreplace'));
+        if (!$record) {
+            mtrace(get_string('errorreplacingstringnorecord', 'tool_advancedreplace',
+                ['id' => $id, 'table' => $table, 'column' => $columnname]));
+            return false;
         }
-        $DB->execute($sql, $params);
+
+        $escapedsearchstring = str_replace("\n", "\r\n", $search);
+
+        if (str_contains($record->$columnname, $search)) {
+            $newstring = str_replace($search, $replace, $record->$columnname);
+            return $DB->set_field($table, $columnname, $newstring, array('id' => $id));
+        } else if (str_contains($record->$columnname, $escapedsearchstring)) {
+            $newstring = str_replace($escapedsearchstring, $replace, $record->$columnname);
+            return $DB->set_field($table, $columnname, $newstring, array('id' => $id));
+        } else {
+            mtrace(get_string('errorreplacingstring', 'tool_advancedreplace',
+                ['id' => $id, 'table' => $table, 'column' => $columnname]));
+            return false;
+        }
     }
 
     /**
@@ -809,14 +783,17 @@ class helper {
         $csvimport->init();
         $rowcount = 0;
         $rowskip = 0;
+        $rowerror = 0;
         while ($record = $csvimport->next()) {
             if (empty($record[$replaceindex])) {
                 // Skip if 'replace' is empty.
                 $rowskip++;
             } else if ($type == 'db') {
                 // Replace the string.
-                self::replace_text_in_a_record($record[$tableindex], $record[$columnindex],
-                    $record[$matchindex], $record[$replaceindex], $record[$idindex]);
+                if (!self::replace_text_in_a_record($record[$tableindex], $record[$columnindex],
+                    $record[$matchindex], $record[$replaceindex], $record[$idindex])) {
+                    $rowerror++;
+                }
             } else if ($type == 'files') {
                 $filerecord = [
                     'contextid' => $record[$contextidindex],
@@ -836,11 +813,11 @@ class helper {
 
             // Update the progress bar.
             $rowcount++;
-            $progress->update_full(100 * $rowcount / $contentcount, "Processed $rowcount records. Skipped $rowskip records.");
+            $progress->update_full(100 * $rowcount / $contentcount, "Processed $rowcount records. Skipped $rowskip records. Error replacing $rowerror records.");
         }
 
         // Show progress.
-        $progress->update_full('100', "Processed $rowcount records. Skipped $rowskip records.");
+        $progress->update_full('100', "Processed $rowcount records. Skipped $rowskip records. Error replacing $rowerror records.");
 
         $csvimport->cleanup();
         $csvimport->close();
