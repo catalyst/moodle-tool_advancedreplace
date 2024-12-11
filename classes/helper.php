@@ -813,11 +813,12 @@ class helper {
 
             // Update the progress bar.
             $rowcount++;
-            $progress->update_full(100 * $rowcount / $contentcount, "Processed $rowcount records. Skipped $rowskip records. Error replacing $rowerror records.");
+            $progress->update_full(100 * $rowcount / $contentcount,
+                "Replaced $rowcount rows. Skipped $rowskip rows. Error replacing $rowerror rows.");
         }
 
         // Show progress.
-        $progress->update_full('100', "Processed $rowcount records. Skipped $rowskip records. Error replacing $rowerror records.");
+        $progress->update_full('100', "Replaced $rowcount rows. Skipped $rowskip rows. Error replacing $rowerror rows.");
 
         $csvimport->cleanup();
         $csvimport->close();
