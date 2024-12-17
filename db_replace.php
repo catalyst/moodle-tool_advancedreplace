@@ -57,7 +57,7 @@ if ($form->is_cancelled()) {
     $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'draftid' => $data->csvfile);
     $deleteurl = new moodle_url($url, $optionsyes);
     $deletebutton = new single_button($deleteurl, get_string('replace', 'tool_advancedreplace'), 'post');
-    echo $OUTPUT->confirm(get_string('replacecheck', 'tool_advancedreplace'), $deletebutton, $returnurl);
+    echo $OUTPUT->confirm(get_string('replacecheckdb', 'tool_advancedreplace'), $deletebutton, $returnurl);
 } else if ($confirm && !empty($draftid)) {
     require_sesskey();
     $contents = helper::get_replace_csv_content($draftid);
