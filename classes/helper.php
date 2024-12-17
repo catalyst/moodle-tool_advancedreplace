@@ -655,9 +655,11 @@ class helper {
      * @param string $search The text to search for.
      * @param string $replace The text to replace with.
      * @param int $id The id of the record to restrict the search.
+     * @param array $rowcounts The count/outcome for each row.
+     *
      */
     public static function replace_text_in_a_record(string $table, string $columnname,
-                                                    string $search, string $replace, int $id) : bool {
+                                                    string $search, string $replace, int $id, &$rowcounts) {
         global $DB;
 
         $column = self::get_column_info($table, $columnname);
@@ -670,21 +672,24 @@ class helper {
         if (!$record) {
             mtrace(get_string('errorreplacingstringnorecord', 'tool_advancedreplace',
                 ['id' => $id, 'table' => $table, 'column' => $columnname]));
-            return false;
+            $rowcounts['error']++;
+            return;
         }
 
         $escapedsearchstring = str_replace("\n", "\r\n", $search);
 
         if (str_contains($record->$columnname, $search)) {
             $newstring = str_replace($search, $replace, $record->$columnname);
-            return $DB->set_field($table, $columnname, $newstring, array('id' => $id));
+            $DB->set_field($table, $columnname, $newstring, array('id' => $id)) ? $rowcounts['success']++ : $rowcounts['error']++;
         } else if (str_contains($record->$columnname, $escapedsearchstring)) {
             $newstring = str_replace($escapedsearchstring, $replace, $record->$columnname);
-            return $DB->set_field($table, $columnname, $newstring, array('id' => $id));
+            $DB->set_field($table, $columnname, $newstring, array('id' => $id)) ? $rowcounts['success']++ : $rowcounts['error']++;
+        } else if (str_contains($record->$columnname, $replace)) {
+            $rowcounts['replacematch']++;
         } else {
             mtrace(get_string('errorreplacingstring', 'tool_advancedreplace',
                 ['id' => $id, 'table' => $table, 'column' => $columnname]));
-            return false;
+            $rowcounts['error']++;
         }
     }
 
@@ -781,19 +786,21 @@ class helper {
 
         // Read the data and replace the strings.
         $csvimport->init();
-        $rowcount = 0;
-        $rowskip = 0;
-        $rowerror = 0;
+        $rowcounts = [
+            'success' => 0,
+            'skipped' => 0,
+            'error' => 0,
+            'replacematch' => 0,
+        ];
+        $totalrows = 0;
         while ($record = $csvimport->next()) {
             if (empty($record[$replaceindex])) {
                 // Skip if 'replace' is empty.
-                $rowskip++;
+                $rowcounts['skipped']++;
             } else if ($type == 'db') {
                 // Replace the string.
-                if (!self::replace_text_in_a_record($record[$tableindex], $record[$columnindex],
-                    $record[$matchindex], $record[$replaceindex], $record[$idindex])) {
-                    $rowerror++;
-                }
+                self::replace_text_in_a_record($record[$tableindex], $record[$columnindex],
+                    $record[$matchindex], $record[$replaceindex], $record[$idindex], $rowcounts);
             } else if ($type == 'files') {
                 $filerecord = [
                     'contextid' => $record[$contextidindex],
@@ -805,21 +812,16 @@ class helper {
                     'mimetype' => $record[$mimeindex],
                 ];
 
-                if (!self::replace_text_in_file($filerecord, $record[$matchindex], $record[$replaceindex],
-                    $record[$internalindex])) {
-                    $rowskip++;
-                }
+                self::replace_text_in_file($filerecord, $record[$matchindex], $record[$replaceindex],
+                    $record[$internalindex], $rowcounts);
             }
-
+            $totalrows++;
             // Update the progress bar.
-            $rowcount++;
-            $progress->update_full(100 * $rowcount / $contentcount,
-                "Replaced $rowcount rows. Skipped $rowskip rows. Error replacing $rowerror rows.");
+            $progress->update_full(
+                100 * $totalrows / ($contentcount - 1), $rowcounts['success']. " Replaced, ".$rowcounts['skipped']." Skipped, "
+                .$rowcounts['replacematch']." Already replaced, ".$rowcounts['error']." Errors."
+            );
         }
-
-        // Show progress.
-        $progress->update_full('100', "Replaced $rowcount rows. Skipped $rowskip rows. Error replacing $rowerror rows.");
-
         $csvimport->cleanup();
         $csvimport->close();
     }
@@ -849,10 +851,10 @@ class helper {
      * @param string $match The string to search for in the file's contents.
      * @param string $replace The string to replace the matched string with.
      * @param string $internal The name of the internal file to modify (only used for zip files).
+     * @param array $rowcounts The count/outcome for each row.
      *
-     * @return bool Returns true if the string was replaced and the file updated successfully, false otherwise.
      */
-    public static function replace_text_in_file(array $filerecord, string $match, string $replace, string $internal): bool {
+    public static function replace_text_in_file(array $filerecord, string $match, string $replace, string $internal, array &$rowcounts) {
         $fs = get_file_storage();
         $file = $fs->get_file(
             $filerecord['contextid'],
@@ -866,30 +868,41 @@ class helper {
         if (!$file) {
             mtrace(get_string('errorreplacingfilenotfound', 'tool_advancedreplace',
                 ['filename' => $filerecord['filename']]));
-            return false;
+            $rowcounts['error']++;
+            return;
         }
 
         // Specify tmp filename to avoid unique constraint conflict.
         $filerecord['filename'] = time();
 
         if ($filerecord['mimetype'] == 'application/zip' || $filerecord['mimetype'] == 'application/zip.h5p') {
-            $newzip = self::replace_text_in_zip($file, $match, $replace, $internal);
-            $newfile = $fs->create_file_from_pathname($filerecord, $newzip);
+            if ($newzip = self::replace_text_in_zip($file, $match, $replace, $internal, $rowcounts)) {
+                $newfile = $fs->create_file_from_pathname($filerecord, $newzip);
+            } else {
+                return;
+            }
+
             unlink($newzip);
         } else {
 
             $content = $file->get_content();
             $newcontent = str_replace($match, $replace, $content);
+
+            // New and old content are the same, we assume this replace has already been run.
+            if ($newcontent == $content) {
+                $rowcounts['replacematch']++;
+                return;
+            }
             $newfile = $fs->create_file_from_string($filerecord, $newcontent);
         }
         if ($newfile) {
             $file->replace_file_with($newfile);
             $newfile->delete();
-            return true;
+            $rowcounts['success']++;
         } else {
             mtrace(get_string('errorreplacingfile', 'tool_advancedreplace',
                 ['replace' => $match, 'filename' => $filerecord['filepath']]));
-            return false;
+            $rowcounts['error']++;
         }
     }
 
@@ -900,9 +913,10 @@ class helper {
      * @param string $searchstring  The string to search for in the file's contents.
      * @param string $replacestring The string to replace the search string with.
      * @param string $internalfilename The file name of the internal file to be modified.
+     * @param array $rowcounts The count/outcome for each row.
      */
     public static function replace_text_in_zip(\stored_file $zipfile, string $searchstring,
-                                               string $replacestring, string $internalfilename) {
+                                               string $replacestring, string $internalfilename, array &$rowcounts) {
 
         // Create a temporary file path for working with the ZIP file.
         $tempzip = make_request_directory() . '/' . $zipfile->get_filename();
@@ -911,6 +925,7 @@ class helper {
         // Open and modify the ZIP file.
         $zip = new \ZipArchive();
         if ($zip->open($tempzip) !== true) {
+            $rowcounts['error']++;
             return false;
         }
 
@@ -918,6 +933,7 @@ class helper {
         $fileindex = $zip->locateName($internalfilename);
         if ($fileindex === false) {
             $zip->close();
+            $rowcounts['error']++;
             return false;
         }
 
@@ -925,11 +941,18 @@ class helper {
         $filecontent = $zip->getFromIndex($fileindex);
         if ($filecontent === false) {
             $zip->close();
+            $rowcounts['error']++;
             return false;
         }
 
         // Replace the string in the file's contents.
         $modifiedcontents = str_replace($searchstring, $replacestring, $filecontent);
+
+        if ($modifiedcontents == $filecontent) {
+            $zip->close();
+            $rowcounts['replacematch']++;
+            return false;
+        }
 
         // Delete the old file and add the modified file back to the ZIP.
         $zip->deleteName($internalfilename);

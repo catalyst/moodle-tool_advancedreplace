@@ -393,10 +393,15 @@ final class helper_test extends \advanced_testcase {
             'content' => 'This is a page content with a link to https://example.com.au/1234',
             'contentformat' => FORMAT_HTML,
         ]);
-
+        $rowcounts = [
+            'success' => 0,
+            'skipped' => 0,
+            'error' => 0,
+            'replacematch' => 0,
+        ];
         // Replace the text in the page content.
         helper::replace_text_in_a_record('page', 'content', 'https://example.com.au/1234',
-            'https://example.com.au/5678', $page->id);
+            'https://example.com.au/5678', $page->id, $rowcounts);
 
         // Get the updated page content.
         $updatedpage = $DB->get_record('page', ['id' => $page->id]);
