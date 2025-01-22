@@ -37,7 +37,7 @@ $draftid      = optional_param('draftid', '', PARAM_TEXT);
 $url = new moodle_url('/admin/tool/advancedreplace/file_replace.php');
 $PAGE->set_url($url);
 
-admin_externalpage_setup('tool_advancedreplace_search');
+admin_externalpage_setup('tool_advancedreplace_replace');
 
 $redirect = new moodle_url('/admin/tool/advancedreplace/files.php');
 
