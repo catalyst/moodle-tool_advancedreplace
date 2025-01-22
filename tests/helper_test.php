@@ -399,9 +399,11 @@ final class helper_test extends \advanced_testcase {
             'error' => 0,
             'replacematch' => 0,
         ];
+        $errorhandler = new replace_error_handler();
+
         // Replace the text in the page content.
-        helper::replace_text_in_a_record('page', 'content', 'https://example.com.au/1234',
-            'https://example.com.au/5678', $page->id, $rowcounts);
+        helper::replace_text_in_a_record(2, 'page', 'content', 'https://example.com.au/1234',
+            'https://example.com.au/5678', $page->id, $rowcounts, $errorhandler);
 
         // Get the updated page content.
         $updatedpage = $DB->get_record('page', ['id' => $page->id]);
