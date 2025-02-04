@@ -325,7 +325,7 @@ final class helper_test extends \advanced_testcase {
     public function test_regex_search(): void {
         $this->resetAfterTest();
 
-        $searchstring = "https://example.com.au/\d+";
+        $searchstring = "https://example.com.au/[0-9]+";
 
         // Create a course.
         $course = $this->getDataGenerator()->create_course();
