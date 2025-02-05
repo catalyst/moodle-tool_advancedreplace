@@ -1,7 +1,4 @@
-<a href="https://github.com/catalyst/moodle-tool_advancedreplace/actions/workflows/ci.yml?query=branch%3AMOODLE_401_STABLE">
-<img src="https://github.com/catalyst/moodle-tool_advancedreplace/workflows/ci/badge.svg?branch=MOODLE_401_STABLE">
-</a>
-
+[![ci](https://github.com/catalyst/moodle-tool_advancedreplace/actions/workflows/ci.yml/badge.svg?branch=MOODLE_401_STABLE)](https://github.com/catalyst/moodle-tool_advancedreplace/actions/workflows/ci.yml?branch=MOODLE_401_STABLE)
 
 # moodle-tool_advancedreplace
 
@@ -65,4 +62,16 @@ Find all occurrences of "http://example.com/" in all columns except the ones spe
 php find.php --regex-match="http://example.com/\d+" --tables=page --skip-columns=intro,display --output=result.csv
 ```
 
+## Support
 
+If you have issues please log them in
+[GitHub](https://github.com/catalyst/moodle-tool_advancedreplace/issues).
+
+Please note our time is limited, so if you need urgent support or want to
+sponsor a new feature then please contact
+[Catalyst IT Australia](https://www.catalyst-au.net/contact-us).
+
+
+This plugin was developed by [Catalyst IT Australia](https://www.catalyst-au.net/).
+
+<img alt="Catalyst IT" src="https://cdn.rawgit.com/CatalystIT-AU/moodle-auth_saml2/MOODLE_39_STABLE/pix/catalyst-logo.svg" width="400">
