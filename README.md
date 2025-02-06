@@ -4,10 +4,15 @@
 
 This is a Moodle plugin that allows administrators to search and replace strings in the Moodle database.
 
-Administrators can search and replace strings in tables and columns of the Moodle database.
-They can use simple text search or regular expressions.
+It is conceptually similar to the replace tool in core, but way more powerful as it can search
+and replace strings in tables and columns of the Moodle database, as well as inside files withing
+the File API, including files inside zip files such as H5P.
+
+They can use simple text search or regular expressions, and the found records can be downloaded as csv
+and the per-record replacements uploaded as a new csv giving very fine grained replacement capability.
 
 ## GDPR
+
 The plugin does not store any personal data.
 
 ## Branches
