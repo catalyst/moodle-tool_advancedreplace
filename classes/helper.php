@@ -719,9 +719,10 @@ class helper {
     /**
      * Takes csv data and replaces all matching strings within the DB
      * @param string $data CSV data to be read.
+     * @param progress_bar $progress a progress bar.
      * @param string $type type of replace db || files.
      */
-    public static function handle_replace_csv(string $data, string $type = 'db') {
+    public static function handle_replace_csv(string $data, progress_bar $progress, string $type = 'db') {
         // Load the CSV content.
         $iid = csv_import_reader::get_new_iid('tool_advancedreplace');
         $csvimport = new csv_import_reader($iid, 'tool_advancedreplace');
@@ -780,10 +781,6 @@ class helper {
                     implode(', ', $missingcolumns)));
             }
         }
-
-        // Progress bar.
-        $progress = new progress_bar();
-        $progress->create();
 
         // Error handler, which will output a table of errors.
         $errorhandler = new replace_error_handler();

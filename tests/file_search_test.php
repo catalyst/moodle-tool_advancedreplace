@@ -17,14 +17,14 @@
 namespace tool_advancedreplace;
 
 /**
-* File Search  test.
-*
-* Implements some tests to be run on the file_search class.
-*
-* @package    tool_advancedreplace
-* @copyright   2024 Catalyst IT Australia Pty Ltd
-* @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
-*/
+ * File Search  test.
+ *
+ * Implements some tests to be run on the file_search class.
+ *
+ * @package    tool_advancedreplace
+ * @copyright   2024 Catalyst IT Australia Pty Ltd
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class file_search_test extends \advanced_testcase {
     /**
      * Data provider for test_make_where_clause.
@@ -173,7 +173,7 @@ final class file_search_test extends \advanced_testcase {
      * @return void
      */
     public function test_make_where_clause(string $testcase,
-    object $criteria, string $expectedwhereclause, array $expectedparams) {
+    object $criteria, string $expectedwhereclause, array $expectedparams): void {
         global $DB;
         $this->resetAfterTest();
         [$whereclause, $params] = file_search::make_where_clause($criteria);
@@ -263,7 +263,7 @@ final class file_search_test extends \advanced_testcase {
      * @param string $expecteddata The expected result.
      * @return void
      */
-    public function test_resume(int $expectedresumeid, int $expectedmatchcount, string $csvdata, string $expecteddata) {
+    public function test_resume(int $expectedresumeid, int $expectedmatchcount, string $csvdata, string $expecteddata): void {
         $tempdir = make_request_directory('unittest_temp');
         $tempfile = $tempdir . '/mytempfile.csv';
         file_put_contents($tempfile, $csvdata);
