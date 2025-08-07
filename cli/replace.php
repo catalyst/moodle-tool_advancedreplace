@@ -81,5 +81,7 @@ if (!file_exists($file)) {
 $fp = fopen($file, 'r');
 $data = fread($fp, filesize($file));
 fclose($fp);
-helper::handle_replace_csv($data, $type);
+$progress = new progress_bar();
+$progress->create();
+helper::handle_replace_csv($data, $progress, $type);
 exit(0);

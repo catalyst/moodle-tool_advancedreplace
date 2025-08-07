@@ -33,6 +33,7 @@ global $CFG;
 $replace       = optional_param('delete', 0, PARAM_INT);
 $confirm      = optional_param('confirm', '', PARAM_BOOL);
 $draftid      = optional_param('draftid', '', PARAM_TEXT);
+$cleancache   = optional_param('cleancache', 0, PARAM_BOOL);
 
 $url = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
 $PAGE->set_url($url);
@@ -52,20 +53,32 @@ if ($form->is_cancelled()) {
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
     echo html_writer::div(get_string('replace_warning', 'tool_advancedreplace',
         '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;'), 'alert alert-warning');
+    echo $OUTPUT->footer();
 } else if ($data = $form->get_data()) {
     $returnurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
     $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'draftid' => $data->csvfile);
     $deleteurl = new moodle_url($url, $optionsyes);
     $deletebutton = new single_button($deleteurl, get_string('replace', 'tool_advancedreplace'), 'post');
     echo $OUTPUT->confirm(get_string('replacecheckdb', 'tool_advancedreplace'), $deletebutton, $returnurl);
+    echo $OUTPUT->footer();
 } else if ($confirm && !empty($draftid)) {
     require_sesskey();
+    // Progress bar.
+    $progress = new progress_bar();
+    $progress->create();
+    echo $OUTPUT->footer();
+    echo $OUTPUT->select_element_for_append();
     $contents = helper::get_replace_csv_content($draftid);
-    helper::handle_replace_csv($contents);
+    helper::handle_replace_csv($contents, $progress);
+    $purgeurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php', ['cleancache' => 1, 'sesskey' => sesskey()]);
+    $purgebutton = new single_button($purgeurl, get_string('cleancachebutton', 'tool_advancedreplace'), 'post');
+    echo $OUTPUT->confirm(get_string('cleancache', 'tool_advancedreplace'), $purgeurl, $url);
+} else if ($cleancache) {
+    purge_all_caches();
+    redirect($url);
 } else {
     // Display form.
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
     $form->display();
+    echo $OUTPUT->footer();
 }
-
-echo $OUTPUT->footer();

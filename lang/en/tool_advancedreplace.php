@@ -21,7 +21,8 @@
  * @copyright  2024 Catalyst IT Australia Pty Ltd
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
+$string['cleancache'] = 'Some replacements may not take effect until after a cache purge, would you like to do that now?';
+$string['cleancachebutton'] = 'Purge all caches';
 $string['confirm_delete'] = 'Are you sure you want to delete the search? This will also delete the output.';
 $string['copyoptions'] = 'Copy search options';
 $string['errorcolumntypenotsupported'] = 'Column type is not supported.';
