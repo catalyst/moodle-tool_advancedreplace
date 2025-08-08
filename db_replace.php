@@ -46,6 +46,12 @@ $customdata = [
     'userid' => $USER->id,
 ];
 $form = new \tool_advancedreplace\form\replace($url->out(false), $customdata);
+if ($cleancache) {
+    require_sesskey();
+    purge_all_caches();
+    redirect($url);
+}
+
 echo $OUTPUT->header();
 if ($form->is_cancelled()) {
     redirect($redirect);
@@ -73,9 +79,6 @@ if ($form->is_cancelled()) {
     $purgeurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php', ['cleancache' => 1, 'sesskey' => sesskey()]);
     $purgebutton = new single_button($purgeurl, get_string('cleancachebutton', 'tool_advancedreplace'), 'post');
     echo $OUTPUT->confirm(get_string('cleancache', 'tool_advancedreplace'), $purgeurl, $url);
-} else if ($cleancache) {
-    purge_all_caches();
-    redirect($url);
 } else {
     // Display form.
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
