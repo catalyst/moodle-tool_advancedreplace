@@ -16,6 +16,9 @@
 
 namespace tool_advancedreplace;
 
+use core\exception\moodle_exception;
+use database_column_info;
+
 /**
  * Helper test.
  *
@@ -318,11 +321,46 @@ final class helper_test extends \advanced_testcase {
     }
 
     /**
+     * Tests regular expression search is not allowed when DB does not support it.
+     *
+     * @covers \tool_advancedreplace\helper::search_column
+     */
+    public function test_regex_search_not_supported_by_db(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        if ($DB->sql_regex_supported()) {
+            $this->markTestSkipped('Regex supported by database');
+            return;
+        }
+
+        $search = new db_search(0, (object) [
+            'search' => 'test',
+            'regex' => 1,
+            'tables' => 'page,assign',
+            'origin' => 'phpunit',
+        ]);
+        $search->create();
+        $column = current($DB->get_columns('page'));
+
+        $this->expectException(moodle_exception::class);
+        $this->expectExceptionMessage(get_string('errorregexnotsupported', 'tool_advancedreplace'));
+        helper::search_column($search, '1234', $column);
+    }
+
+    /**
      * Regular expression search.
      *
      * @covers \tool_advancedreplace\helper::search_column
      */
     public function test_regex_search(): void {
+        global $DB;
+
+        if (!$DB->sql_regex_supported()) {
+            $this->markTestSkipped('Regex not supported by database');
+            return;
+        }
+
         $this->resetAfterTest();
 
         $searchstring = "https://example.com.au/[0-9]+";
@@ -445,10 +483,9 @@ final class helper_test extends \advanced_testcase {
 
         // The URL returned should contain the id from the course_modules table.
         $sql = "SELECT c.id from {course_modules} c JOIN {modules} m ON m.id = c.module
-            WHERE c.instance = :instance AND m.name=:table
-            LIMIT 1";
+            WHERE c.instance = :instance AND m.name=:table";
         $params = ['instance' => $id, 'table' => $table];
-        $coursemodule = $DB->get_record_sql($sql, $params);
+        $coursemodule = current($DB->get_records_sql($sql, $params, 0, 1));
         $record = (object)['id' => $id];
         $linkstring = $linkfunction($record);
         $this->assertEquals("https://www.example.com/moodle/mod/{$table}/view.php?id={$coursemodule->id}", $linkstring);
