@@ -20,6 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir.'/filelib.php');
+require_once($CFG->dirroot . '/repository/lib.php');
 
 /**
  * Helper class to search and replace text in moddle files.
@@ -475,6 +476,15 @@ class file_search {
 
         if (!$file) {
             return $matchcount;
+        }
+
+        // Skip searching external files.
+        if ($file->is_external_file()) {
+            // Check whether the repository uses internal files.
+            $repository = \repository::get_repository_by_id($file->get_repository_id(), \context_system::instance());
+            if (!$repository->has_moodle_files()) {
+                return $matchcount;
+            }
         }
 
         $csv = [
