@@ -24,7 +24,6 @@ namespace tool_advancedreplace;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class replace_error_handler {
-
     /** @var \flexible_table table */
     protected $table = null;
 

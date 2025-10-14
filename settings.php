@@ -67,15 +67,27 @@ if ($hassiteconfig) {
         )
     );
 
-    $settings->add(new admin_setting_configtextarea('tool_advancedreplace/excludetables',
+    $settings->add(new admin_setting_configtextarea(
+        'tool_advancedreplace/excludetables',
         get_string('settings:excludetables', 'tool_advancedreplace'),
-        get_string('settings:excludetables_help', 'tool_advancedreplace'), '', PARAM_TEXT));
+        get_string('settings:excludetables_help', 'tool_advancedreplace'),
+        '',
+        PARAM_TEXT
+    ));
 
-    $settings->add(new admin_setting_configtextarea('tool_advancedreplace/includetables',
+    $settings->add(new admin_setting_configtextarea(
+        'tool_advancedreplace/includetables',
         get_string('settings:includetables', 'tool_advancedreplace'),
-        get_string('settings:includetables_help', 'tool_advancedreplace'), '', PARAM_TEXT));
+        get_string('settings:includetables_help', 'tool_advancedreplace'),
+        '',
+        PARAM_TEXT
+    ));
 
-    $settings->add(new admin_setting_configduration('tool_advancedreplace/logduration',
+    $settings->add(new admin_setting_configduration(
+        'tool_advancedreplace/logduration',
         get_string('settings:logduration', 'tool_advancedreplace'),
-        get_string('settings:logduration_help', 'tool_advancedreplace'), 30, 1));
+        get_string('settings:logduration_help', 'tool_advancedreplace'),
+        30,
+        1
+    ));
 }

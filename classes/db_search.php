@@ -24,7 +24,6 @@ namespace tool_advancedreplace;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class db_search extends search {
-
     /** The name of the database table. */
     public const TABLE = 'tool_advancedreplace_search';
 

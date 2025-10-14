@@ -26,9 +26,9 @@ use tool_advancedreplace\helper;
 
 define('CLI_SCRIPT', true);
 
-require(__DIR__.'/../../../../config.php');
-require_once($CFG->libdir.'/clilib.php');
-require_once($CFG->libdir.'/adminlib.php');
+require(__DIR__ . '/../../../../config.php');
+require_once($CFG->libdir . '/clilib.php');
+require_once($CFG->libdir . '/adminlib.php');
 
 $help =
     "Search text throughout the whole database.
@@ -59,7 +59,7 @@ Example:
 \$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/find.php --regex-match=thelostsoul\\d+ --output=/tmp/result.csv
 ";
 
-list($options, $unrecognized) = cli_get_params(
+[$options, $unrecognized] = cli_get_params(
     [
         'search'        => null,
         'regex-match'   => null,
@@ -81,10 +81,7 @@ if ($unrecognized) {
 }
 
 // Ensure that we have required parameters.
-if ($options['help']
-        || (!is_string($options['search']) && empty($options['regex-match']))
-        || empty($options['output'])
-    ) {
+if ($options['help'] || (!is_string($options['search']) && empty($options['regex-match'])) || empty($options['output'])) {
     echo $help;
     exit(0);
 }
@@ -95,7 +92,7 @@ if (!empty($options['regex-match']) && !empty($options['search'])) {
 }
 
 try {
-    $data = new stdClass;
+    $data = new stdClass();
     if (!empty($options['search'])) {
         $data->search = validate_param($options['search'], PARAM_RAW);
     } else {

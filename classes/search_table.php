@@ -26,7 +26,6 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class search_table extends \table_sql {
-
     /**
      * Identifies the class used to interact with the database table.
      *
@@ -444,8 +443,10 @@ class search_table extends \table_sql {
     protected function get_delete_link($record): string {
         global $OUTPUT;
 
-        $url = new \moodle_url('/admin/tool/advancedreplace/' . $this->urlfragment,
-            ['delete' => $record->id, 'sesskey' => sesskey()]);
+        $url = new \moodle_url(
+            '/admin/tool/advancedreplace/' . $this->urlfragment,
+            ['delete' => $record->id, 'sesskey' => sesskey()]
+        );
         $action = new \confirm_action(get_string('confirm_delete', 'tool_advancedreplace'));
         $deleteicon = $OUTPUT->render(new \pix_icon('t/delete', get_string('delete')));
 
