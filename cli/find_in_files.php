@@ -26,9 +26,9 @@ use tool_advancedreplace\file_search;
 
 define('CLI_SCRIPT', true);
 
-require(__DIR__.'/../../../../config.php');
-require_once($CFG->libdir.'/clilib.php');
-require_once($CFG->libdir.'/adminlib.php');
+require(__DIR__ . '/../../../../config.php');
+require_once($CFG->libdir . '/clilib.php');
+require_once($CFG->libdir . '/adminlib.php');
 
 $help =
     "Search for text in moodle files.
@@ -63,7 +63,7 @@ Example:
 \$ php find_in_files.php --regex-match='https:(.*).com' --output=/tmp/result.csv --mimetype=application/zip.h5p
 ";
 
-list($options, $unrecognized) = cli_get_params(
+[$options, $unrecognized] = cli_get_params(
     [
         'regex-match'   => null,
         'output'        => null,
@@ -91,16 +91,13 @@ if ($unrecognized) {
 }
 
 // Ensure that we have required parameters.
-if ($options['help']
-        || empty($options['regex-match'])
-        || empty($options['output'])
-    ) {
+if ($options['help'] || empty($options['regex-match']) || empty($options['output'])) {
     echo $help;
     exit(0);
 }
 
 try {
-    $data = new stdClass;
+    $data = new stdClass();
     $data->pattern = validate_param($options['regex-match'], PARAM_RAW);
     $data->components = validate_param($options['components'], PARAM_RAW);
     $data->skipcomponents = validate_param($options['skip-components'], PARAM_RAW);

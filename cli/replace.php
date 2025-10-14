@@ -26,9 +26,9 @@ use tool_advancedreplace\helper;
 
 define('CLI_SCRIPT', true);
 
-require(__DIR__.'/../../../../config.php');
-require_once($CFG->libdir.'/clilib.php');
-require_once($CFG->libdir.'/adminlib.php');
+require(__DIR__ . '/../../../../config.php');
+require_once($CFG->libdir . '/clilib.php');
+require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/lib/csvlib.class.php');
 $help =
     "Replace strings using uploaded CSV file..
@@ -42,7 +42,7 @@ Example:
 \$ sudo -u www-data /usr/bin/php admin/tool/advancedreplace/cli/replace.php --input=/tmp/result.csv
 ";
 
-list($options, $unrecognized) = cli_get_params(
+[$options, $unrecognized] = cli_get_params(
     [
         'input'        => null,
         'type'         => 'db',

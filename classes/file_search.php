@@ -19,7 +19,7 @@ namespace tool_advancedreplace;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/adminlib.php');
-require_once($CFG->libdir.'/filelib.php');
+require_once($CFG->libdir . '/filelib.php');
 require_once($CFG->dirroot . '/repository/lib.php');
 
 /**
@@ -157,8 +157,13 @@ class file_search {
      * @param bool $finalshard True if this is the ladt shard
      * @return void
      */
-    public static function files(files $record, string $output = '',
-            int $startid = 0, int $endid = 0, bool $finalshard = false) {
+    public static function files(
+        files $record,
+        string $output = '',
+        int $startid = 0,
+        int $endid = 0,
+        bool $finalshard = false
+    ) {
         global $DB;
         \core_php_time_limit::raise();
         raise_memory_limit(MEMORY_HUGE);
@@ -177,7 +182,7 @@ class file_search {
 
         [$whereclause, $params] = self::make_where_clause($criteria);
         // If we are running a shard, then restrict the range of id.
-        if ( ! empty($startid) || ! empty($endid)) {
+        if (!empty($startid) || !empty($endid)) {
             if (empty($finalshard)) {
                 $logmessage .= " Shard from $startid to $endid.";
                 $whereclause .= ' AND f.id between :startid and :endid';
@@ -198,7 +203,7 @@ class file_search {
             $resumeid = 0;
             $matchcount = 0;
         }
-        if ( ! empty($resumeid)) {
+        if (!empty($resumeid)) {
             $logmessage .= " Resume from $resumeid.";
             $stream = fopen($output, 'a');
             $whereclause .= ' AND f.id >= :resumeid ';
@@ -236,12 +241,11 @@ class file_search {
         foreach ($fileset as $filerecord) {
             $record->update_progress_bar("Searching in $filerecord->component:$filerecord->filename");
             $matchcount += self::search_file($filerecord, $criteria, $stream);
-            $filecount ++;
+            $filecount++;
             // Update status. If this returns false, the record is gone so stop searching.
             if (!$processing = $record->update_status($filecount, $matchcount)) {
                 break;
             }
-
         }
         $fileset->close();
         fclose($stream);
@@ -332,14 +336,14 @@ class file_search {
         $matchcount = 0;
         if (preg_match_all($criteria->pattern, $filecontents, $matches, PREG_OFFSET_CAPTURE)) {
             foreach ($matches[0] as $index => $match) {
-                $matchcount ++;
+                $matchcount++;
                 $group = 0;
                 while (!empty($matches[$group][$index])) {
                     // Group = 0 for matching the whole regex.
                     // Other groups are for matching parenthesised groups in the regex.
                     $csv[self::CSV_OFFSET + 2 * $group] = $matches[$group][$index][1];
                     $csv[self::CSV_MATCH + 2 * $group] = $matches[$group][$index][0];
-                    $group ++;
+                    $group++;
                 }
                 fputcsv($stream, $csv);
             }
@@ -414,12 +418,12 @@ class file_search {
         }
 
         $zip = new \ZipArchive();
-        if (! empty ($criteria->zipfilenames)) {
+        if (!empty($criteria->zipfilenames)) {
             $namepattern = '%' . $criteria->zipfilenames . '%i';
         } else {
             $namepattern = '';
         }
-        if (! empty ($criteria->skipzipfilenames)) {
+        if (!empty($criteria->skipzipfilenames)) {
             $skipnamepattern = '%' . $criteria->skipzipfilenames . '%i';
         } else {
             $skipnamepattern = '';
@@ -429,13 +433,13 @@ class file_search {
                 $stat = $zip->statIndex($i);
 
                 // Filter by file name.
-                if ( ! empty($namepattern)) {
-                    if ( ! preg_match($namepattern, $stat['name'])) {
+                if (!empty($namepattern)) {
+                    if (!preg_match($namepattern, $stat['name'])) {
                         continue;
                     }
                 }
-                if ( ! empty($skipnamepattern)) {
-                    if ( preg_match($skipnamepattern, $stat['name'])) {
+                if (!empty($skipnamepattern)) {
+                    if (preg_match($skipnamepattern, $stat['name'])) {
                         continue;
                     }
                 }
@@ -539,18 +543,18 @@ class file_search {
         $whereclause = '';
         $and = ''; // For first one.
 
-        if ( ! empty($criteria->components)) {
+        if (!empty($criteria->components)) {
             $whereclause .= $and . '( ';
             $and = ' AND '; // For next one.
             $or = ''; // For first one.
             foreach (explode(',', $criteria->components) as $specification) {
                 $subspecifications = explode(':', $specification);
-                $paramnumber ++;
+                $paramnumber++;
                 $whereclause .= $or . "(component=:param{$paramnumber}";
                 $or = ' OR '; // For next time.
                 $params["param{$paramnumber}"] = trim($subspecifications[0]);
-                if (! empty($subspecifications[1])) {
-                    $paramnumber ++;
+                if (!empty($subspecifications[1])) {
+                    $paramnumber++;
                     $whereclause .= " AND filearea=:param{$paramnumber}";
                     $params["param{$paramnumber}"] = trim($subspecifications[1]);
                 }
@@ -559,25 +563,25 @@ class file_search {
             $whereclause .= ' )';
         }
 
-        if ( ! empty($criteria->mimetypes)) {
+        if (!empty($criteria->mimetypes)) {
             $whereclause .= $and . '( ';
             $and = ' AND '; // For next one.
             $or = ''; // For first time.
             foreach (explode(',', $criteria->mimetypes) as $mimetype) {
-                $paramnumber ++;
-                $whereclause .= $or ."(mimetype=:param{$paramnumber})";
+                $paramnumber++;
+                $whereclause .= $or . "(mimetype=:param{$paramnumber})";
                 $params["param{$paramnumber}"] = trim($mimetype);
                 $or = ' OR '; // For next one.
             }
             $whereclause .= ' )';
         }
 
-        if ( ! empty($criteria->filenames)) {
+        if (!empty($criteria->filenames)) {
             $whereclause .= $and . '( ';
             $and = ' AND '; // For next one.
             $or = ''; // For first time.
             foreach (explode(',', $criteria->filenames) as $filename) {
-                $paramnumber ++;
+                $paramnumber++;
                 $whereclause .= $or . "(filename=:param{$paramnumber})";
                 $or = ' OR '; // For next one.
                 $params["param{$paramnumber}"] = trim($filename);
@@ -585,36 +589,36 @@ class file_search {
             $whereclause .= ' )';
         }
 
-        if ( ! empty($criteria->skipcomponents)) {
+        if (!empty($criteria->skipcomponents)) {
             foreach (explode(',', $criteria->skipcomponents) as $component) {
-                $paramnumber ++;
+                $paramnumber++;
                 $params["param{$paramnumber}"] = trim($component);
                 $whereclause .= $and . "(component!=:param{$paramnumber})";
                 $and = ' AND '; // For next one.
             }
         }
 
-        if ( ! empty($criteria->skipmimetypes)) {
+        if (!empty($criteria->skipmimetypes)) {
             foreach (explode(',', $criteria->skipmimetypes) as $mimetype) {
-                $paramnumber ++;
+                $paramnumber++;
                 $params["param{$paramnumber}"] = trim($mimetype);
                 $whereclause .= " AND (mimetype!=:param{$paramnumber})";
                 $and = ' AND '; // For next one.
             }
         }
 
-        if ( ! empty($criteria->skipfilenames)) {
+        if (!empty($criteria->skipfilenames)) {
             foreach (explode(',', $criteria->skipfilenames) as $filename) {
-                $paramnumber ++;
+                $paramnumber++;
                 $params["param{$paramnumber}"] = trim($filename);
                 $whereclause .= $and . "(filename!=:param{$paramnumber})";
                 $and = ' AND '; // For next one.
             }
         }
 
-        if ( ! empty($criteria->skipareas)) {
+        if (!empty($criteria->skipareas)) {
             foreach (explode(',', $criteria->skipareas) as $area) {
-                $paramnumber ++;
+                $paramnumber++;
                 $params["param{$paramnumber}"] = trim($area);
                 $whereclause .= $and . "(filearea!=:param{$paramnumber})";
                 $and = ' AND '; // For next one.
@@ -640,13 +644,13 @@ class file_search {
         if (empty($csv[self::CSV_CONTEXTID])) {
             return 0;
         }
-        if ( ! ctype_digit($csv[self::CSV_CONTEXTID])) {
+        if (!ctype_digit($csv[self::CSV_CONTEXTID])) {
             return 0;
         }
         if (empty($csv[self::CSV_FILEID])) {
             return 0;
         }
-        if ( ! ctype_digit($csv[self::CSV_FILEID])) {
+        if (!ctype_digit($csv[self::CSV_FILEID])) {
             return 0;
         }
 
@@ -661,7 +665,7 @@ class file_search {
      * @return int $matchcount The number of matches left in the file.
      */
     public static function resume(string $filename): array {
-        if ( ! file_exists($filename)) {
+        if (!file_exists($filename)) {
             return [0, 0];
         }
 
@@ -690,7 +694,7 @@ class file_search {
                 // Leave this line in place.
                 break;
             }
-            if ( count($lines) < 3 ) {
+            if (count($lines) < 3) {
                 // Too small to resume.
                 return [0, 0];
             }
@@ -701,8 +705,3 @@ class file_search {
         return [$resumeid, $matchcount];
     }
 }
-
-
-
-
-

@@ -64,8 +64,12 @@ class search extends \core\form\persistent {
         $mform->hideIf('prematch', 'regex');
         // Use group as a workaround to use hideIf on static element for 4.1, fixed by MDL-66251 in 4.3.
         $prematchhelp = [];
-        $prematchhelp[] =& $mform->createElement('static', 'prematch_help', '',
-            get_string('field_prematch_help', 'tool_advancedreplace'));
+        $prematchhelp[] =& $mform->createElement(
+            'static',
+            'prematch_help',
+            '',
+            get_string('field_prematch_help', 'tool_advancedreplace')
+        );
         $mform->addGroup($prematchhelp, 'prematch_group');
         $mform->hideif('prematch_group', 'regex');
 

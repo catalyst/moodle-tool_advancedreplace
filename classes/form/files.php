@@ -36,7 +36,7 @@ class files extends \core\form\persistent {
     const PLUGIN = 'tool_advancedreplace';
 
     /** @var string Persistent class name. */
-    protected static $persistentclass = self::PLUGIN .'\\files';
+    protected static $persistentclass = self::PLUGIN . '\\files';
 
     /**
      * Form definition
@@ -70,37 +70,37 @@ class files extends \core\form\persistent {
         $mform->addElement('textarea', 'components', get_string("field_components", self::PLUGIN), $textareasize);
         $mform->setType('components', PARAM_RAW);
         $mform->setDefault('components', '');
-        $mform->addElement('static', 'components_help', '', get_string( 'field_components_help', self::PLUGIN));
+        $mform->addElement('static', 'components_help', '', get_string('field_components_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'skipcomponents', get_string("field_skipcomponents", self::PLUGIN), $textareasize);
         $mform->setType('skipcomponents', PARAM_RAW);
         $mform->setDefault('skipcomponents', '');
-        $mform->addElement('static', 'skipcomponents_help', '', get_string( 'field_skipcomponents_help', self::PLUGIN));
+        $mform->addElement('static', 'skipcomponents_help', '', get_string('field_skipcomponents_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'mimetypes', get_string("field_mimetypes", self::PLUGIN), $textareasize);
         $mform->setType('mimetypes', PARAM_RAW);
         $mform->setDefault('mimetypes', '');
-        $mform->addElement('static', 'mimetypes_help', '', get_string( 'field_mimetypes_help', self::PLUGIN));
+        $mform->addElement('static', 'mimetypes_help', '', get_string('field_mimetypes_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'skipmimetypes', get_string("field_skipmimetypes", self::PLUGIN), $textareasize);
         $mform->setType('skipmimetypes', PARAM_RAW);
         $mform->setDefault('skipmimetypes', '');
-        $mform->addElement('static', 'skipmimetypes_help', '', get_string( 'field_skipmimetypes_help', self::PLUGIN));
+        $mform->addElement('static', 'skipmimetypes_help', '', get_string('field_skipmimetypes_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'filenames', get_string("field_filenames", self::PLUGIN), $textareasize);
         $mform->setType('filenames', PARAM_RAW);
         $mform->setDefault('filenames', '');
-        $mform->addElement('static', 'filenames_help', '', get_string( 'field_filenames_help', self::PLUGIN));
+        $mform->addElement('static', 'filenames_help', '', get_string('field_filenames_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'skipfilenames', get_string("field_skipfilenames", self::PLUGIN), $textareasize);
         $mform->setType('skipfilenames', PARAM_RAW);
         $mform->setDefault('skipfilenames', '');
-        $mform->addElement('static', 'skipfilenames_help', '', get_string( 'field_skipfilenames_help', self::PLUGIN));
+        $mform->addElement('static', 'skipfilenames_help', '', get_string('field_skipfilenames_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'skipareas', get_string("field_skipareas", self::PLUGIN), $textareasize);
         $mform->setType('skipareas', PARAM_RAW);
         $mform->setDefault('skipareas', '');
-        $mform->addElement('static', 'skipareas_help', '', get_string( 'field_skipareas_help', self::PLUGIN));
+        $mform->addElement('static', 'skipareas_help', '', get_string('field_skipareas_help', self::PLUGIN));
 
         $mform->addElement('checkbox', 'openzips', get_string('field_openzips', self::PLUGIN));
         $mform->addHelpButton('openzips', 'field_openzips', 'tool_advancedreplace');
@@ -108,18 +108,18 @@ class files extends \core\form\persistent {
         $mform->addElement('textarea', 'zipfilenames', get_string("field_zipfilenames", self::PLUGIN), $textareasize);
         $mform->setType('zipfilenames', PARAM_RAW);
         $mform->setDefault('zipfilenames', '');
-        $mform->addElement('static', 'zipfilenames_help', '', get_string( 'field_zipfilenames_help', self::PLUGIN));
+        $mform->addElement('static', 'zipfilenames_help', '', get_string('field_zipfilenames_help', self::PLUGIN));
 
         $mform->addElement('textarea', 'skipzipfilenames', get_string("field_skipzipfilenames", self::PLUGIN), $textareasize);
         $mform->setType('skipzipfilenames', PARAM_RAW);
         $mform->setDefault('skipzipfilenames', '');
-        $mform->addElement('static', 'skipzipfilenames_help', '', get_string( 'field_skipzipfilenames_help', self::PLUGIN));
+        $mform->addElement('static', 'skipzipfilenames_help', '', get_string('field_skipzipfilenames_help', self::PLUGIN));
 
         $mform->addElement('text', 'shards', get_string("field_shards", self::PLUGIN, $fullwidth));
         $mform->setType('shards', PARAM_INT);
         $mform->addRule('shards', get_string('err_numeric', 'form'), 'numeric', null, 'client');
         $mform->setDefault('shards', 1);
-        $mform->addElement('static', 'shards_help', '', get_string( 'field_shards_help', self::PLUGIN));
+        $mform->addElement('static', 'shards_help', '', get_string('field_shards_help', self::PLUGIN));
 
         $this->add_action_buttons(true, get_string('search'));
     }

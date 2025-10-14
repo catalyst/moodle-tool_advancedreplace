@@ -141,9 +141,9 @@ final class file_search_test extends \advanced_testcase {
                     'filenames' => 'content.html',
                     'skipfilenames' => 'favicon.png',
                 ],
-                '( (component=:param1 AND filearea=:param2) ) AND ( (mimetype=:param3) ) AND ( (filename=:param4) )'.
-                ' AND (component!=:param5) AND (mimetype!=:param6) AND (mimetype!=:param7)' .
-                ' AND (filename!=:param8) AND (filearea!=:param9) AND (filearea!=:param10)',
+                '( (component=:param1 AND filearea=:param2) ) AND ( (mimetype=:param3) ) AND ( (filename=:param4) )' .
+                    ' AND (component!=:param5) AND (mimetype!=:param6) AND (mimetype!=:param7)' .
+                    ' AND (filename!=:param8) AND (filearea!=:param9) AND (filearea!=:param10)',
                 [
                     'param1' => 'goodcomponent',
                     'param2' => 'goodarea',
@@ -172,16 +172,19 @@ final class file_search_test extends \advanced_testcase {
      * @param array $expectedparams The array of parameters that we expect to generate.
      * @return void
      */
-    public function test_make_where_clause(string $testcase,
-    object $criteria, string $expectedwhereclause, array $expectedparams): void {
+    public function test_make_where_clause(
+        string $testcase,
+        object $criteria,
+        string $expectedwhereclause,
+        array $expectedparams
+    ): void {
         global $DB;
         $this->resetAfterTest();
         [$whereclause, $params] = file_search::make_where_clause($criteria);
-        $result = $DB->get_recordset_select('files', $whereclause, $params, 'component, filearea, contextid, itemid' );
+        $result = $DB->get_recordset_select('files', $whereclause, $params, 'component, filearea, contextid, itemid');
         $this->assertNotFalse($result, "SQL should be valid syntax.");
         $this->assertEquals($expectedwhereclause, $whereclause, "The generated where clause should match expected one.");
         $this->assertSame($expectedparams, $params, "The array of parameters for the \$DB call should be as expected.");
-
     }
 
     /**
@@ -273,6 +276,4 @@ final class file_search_test extends \advanced_testcase {
         $this->assertEquals($expectedresumeid, $resumeid);
         $this->assertEquals($expectedmatchcount, $matchcount);
     }
-
 }
-

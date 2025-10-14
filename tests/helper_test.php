@@ -215,8 +215,15 @@ final class helper_test extends \advanced_testcase {
      *
      * return void
      */
-    public function test_build_searching_list(string $tables, string $skiptables, string $skipcolumns , string $searchstring,
-                                              array $config, array $expectedlist, array $unexpectedlist): void {
+    public function test_build_searching_list(
+        string $tables,
+        string $skiptables,
+        string $skipcolumns,
+        string $searchstring,
+        array $config,
+        array $expectedlist,
+        array $unexpectedlist
+    ): void {
         $this->resetAfterTest();
         foreach ($config as $name => $value) {
             set_config($name, $value, 'tool_advancedreplace');
@@ -269,7 +276,6 @@ final class helper_test extends \advanced_testcase {
                 // The table should not be in the result.
                 $this->assertArrayNotHasKey($table, $searchlist);
             }
-
         }
     }
 
@@ -440,8 +446,16 @@ final class helper_test extends \advanced_testcase {
         $errorhandler = new replace_error_handler();
 
         // Replace the text in the page content.
-        helper::replace_text_in_a_record(2, 'page', 'content', 'https://example.com.au/1234',
-            'https://example.com.au/5678', $page->id, $rowcounts, $errorhandler);
+        helper::replace_text_in_a_record(
+            2,
+            'page',
+            'content',
+            'https://example.com.au/1234',
+            'https://example.com.au/5678',
+            $page->id,
+            $rowcounts,
+            $errorhandler
+        );
 
         // Get the updated page content.
         $updatedpage = $DB->get_record('page', ['id' => $page->id]);
@@ -532,6 +546,5 @@ final class helper_test extends \advanced_testcase {
         ]);
         $this->assertInstanceOf(\stdClass::class, $assign);
         $this->find_module('assign', $assign->id);
-
     }
 }

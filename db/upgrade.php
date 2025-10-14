@@ -34,7 +34,6 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
     $dbman = $DB->get_manager();
 
     if ($oldversion < 2024100400) {
-
         // Define table tool_advancedreplace_search to be created.
         $table = new xmldb_table('tool_advancedreplace_search');
 
@@ -73,7 +72,6 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
     }
 
     if ($oldversion < 2024101600) {
-
         // Define table tool_advancedreplace_search to be created.
         $table = new xmldb_table('tool_advancedreplace_files');
 
@@ -91,22 +89,14 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
         $table->add_field('skipareas', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
         // These next few columns are the same as the search table above.
         // They have the 8th parameter to avoid cut-and-paste detection in ci phpcpd.
-        $table->add_field('origin', XMLDB_TYPE_CHAR, '10',
-        null, XMLDB_NOTNULL, null, null, 'skipareas');
-        $table->add_field('timestart', XMLDB_TYPE_INTEGER,
-        '10', null, XMLDB_NOTNULL, null, '0', 'origin');
-        $table->add_field('timeend', XMLDB_TYPE_INTEGER,
-        '10', null, XMLDB_NOTNULL, null, '0', 'timestart');
-        $table->add_field('progress', XMLDB_TYPE_NUMBER,
-        '10, 2', null, XMLDB_NOTNULL, null, '0', 'timeend');
-        $table->add_field('matches', XMLDB_TYPE_INTEGER,
-        '10', null, XMLDB_NOTNULL, null, '0', 'progress');
-        $table->add_field('usermodified', XMLDB_TYPE_INTEGER,
-        '10', null, XMLDB_NOTNULL, null, '0', 'matches');
-        $table->add_field('timecreated', XMLDB_TYPE_INTEGER,
-        '10', null, XMLDB_NOTNULL, null, '0', 'usermodified');
-        $table->add_field('timemodified', XMLDB_TYPE_INTEGER,
-        '10', null, XMLDB_NOTNULL, null, '0', 'timecreated');
+        $table->add_field('origin', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, null, 'skipareas');
+        $table->add_field('timestart', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'origin');
+        $table->add_field('timeend', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timestart');
+        $table->add_field('progress', XMLDB_TYPE_NUMBER, '10, 2', null, XMLDB_NOTNULL, null, '0', 'timeend');
+        $table->add_field('matches', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'progress');
+        $table->add_field('usermodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'matches');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'usermodified');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timecreated');
 
         // Adding keys to table tool_advancedreplace_search.
         $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
@@ -143,7 +133,6 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
     }
 
     if ($oldversion < 2024102801) {
-
         // Define field shards to be added to tool_advancedreplace_files.
         $table = new xmldb_table('tool_advancedreplace_files');
         $field = new xmldb_field('shards', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '1', 'skipzipfilenames');
@@ -166,7 +155,6 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
     }
 
     if ($oldversion < 2024112100) {
-
         // Changing precision of field name on table tool_advancedreplace_search to (64).
         $table = new xmldb_table('tool_advancedreplace_search');
         $field = new xmldb_field('name', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null, 'userid');

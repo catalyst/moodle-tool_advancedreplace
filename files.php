@@ -42,7 +42,7 @@ if (isset($delete)) {
     require_sesskey();
     $files = new \tool_advancedreplace\files($delete);
     $files->delete();
-    \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));;
+    \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));
     redirect($url);
 }
 
@@ -63,7 +63,7 @@ if (isset($id)) {
             $files->create();
             $files->queue_task();
 
-            \core\notification::success(get_string('searchqueued', 'tool_advancedreplace'));;
+            \core\notification::success(get_string('searchqueued', 'tool_advancedreplace'));
             redirect($url);
         } else {
             // This should never modify an existing search..

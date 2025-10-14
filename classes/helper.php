@@ -37,7 +37,6 @@ use tool_advancedreplace\db_search;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class helper {
-
     /** @var string ALL_COLUMNS Flag to indicate we search all columns in a table **/
     const ALL_COLUMNS = 'all columns';
 
@@ -84,36 +83,36 @@ class helper {
 
         // Skip columns that are in the skip list.
         $skipcolumns = $search->get_all_skipcolumns();
-        $columns = array_filter($columns, function($col) use ($skipcolumns) {
+        $columns = array_filter($columns, function ($col) use ($skipcolumns) {
             return !in_array($col->name, $skipcolumns);
         });
 
         // Only search the specified columns.
         if (!in_array(self::ALL_COLUMNS, $searchingcolumns)) {
-            $columns = array_filter($columns, function($col) use ($searchingcolumns) {
+            $columns = array_filter($columns, function ($col) use ($searchingcolumns) {
                 return in_array($col->name, $searchingcolumns);
             });
         }
 
         // Check if we need to skip some columns.
-        $columns = array_filter($columns, function($col) use ($table) {
+        $columns = array_filter($columns, function ($col) use ($table) {
             return db_should_replace($table, $col->name);
         });
 
         // Only search columns that are of type text or char.
-        $columns = array_filter($columns, function($col) {
+        $columns = array_filter($columns, function ($col) {
             return $col->meta_type === 'X' || $col->meta_type === 'C';
         });
 
         // Skip columns which has 'format' in the name.
-        $columns = array_filter($columns, function($col) {
+        $columns = array_filter($columns, function ($col) {
             return strpos($col->name, 'format') === false;
         });
 
         // Exclude columns that has max length less than the search string.
         $minlenth = $search->get_min_search_length();
         if (!empty($minlenth)) {
-            $columns = array_filter($columns, function($col) use ($minlenth) {
+            $columns = array_filter($columns, function ($col) use ($minlenth) {
                 return $col->max_length < 0 || $col->max_length >= $minlenth;
             });
         }
@@ -289,7 +288,7 @@ class helper {
         if (!$regex || !empty($prematch)) {
             $searchtext = !$regex ? $search->get('search') : $prematch;
             $wheresql[] = $DB->sql_like("$tablealias." . $columnname, ':search', false);
-            $params['search'] = '%'.$DB->sql_like_escape($searchtext).'%';
+            $params['search'] = '%' . $DB->sql_like_escape($searchtext) . '%';
         }
 
         // Add regex search.
@@ -305,7 +304,7 @@ class helper {
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
                            c.shortname as courseshortname
-                      FROM {".$table."} $tablealias
+                      FROM {" . $table . "} $tablealias
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                      WHERE $wheresql";
         } else if (isset($supportedtablemappings[$table])) {
@@ -313,12 +312,12 @@ class helper {
                            $tablealias.$columnname,
                            c.id as courseid,
                            c.shortname as courseshortname
-                      FROM {".$table."} $tablealias
+                      FROM {" . $table . "} $tablealias
                  {$supportedtablemappings[$table][1]}
                  LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
         } else {
-            $sql = "SELECT id, $columnname FROM {".$table."} $tablealias WHERE $wheresql";
+            $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
         }
 
         return [$sql, $params];
@@ -384,7 +383,7 @@ class helper {
                     $question = \question_bank::load_question($record->id);
                     $category = $DB->get_record('question_categories', ['id' => $question->category], '*', MUST_EXIST);
                     $context = \context::instance_by_id($category->contextid);
-                    $course = $DB->get_record('course', array('id' => $context->instanceid));
+                    $course = $DB->get_record('course', ['id' => $context->instanceid]);
                     $record->courseid = $course->id;
                     $record->courseshortname = $course->shortname;
                     $linkstring = $linkfunction($record, $course->id);
@@ -413,7 +412,7 @@ class helper {
                 $pattern = str_replace('/', '\\/', $search->get('search'));
 
                 // Perform the regular expression search.
-                preg_match_all( "/" . $pattern . "/", $data, $matches);
+                preg_match_all("/" . $pattern . "/", $data, $matches);
 
                 if (!empty($matches[0])) {
                     foreach ($matches[0] as $match) {
@@ -565,22 +564,24 @@ class helper {
         global $DB;
 
         $linktypes = [
-            'course' => function($record) {
+            'course' => function ($record) {
                 $url = new \moodle_url('/course/view.php', ['id' => $record->id]);
                 return $url->out();
             },
-            'course_section' => function($record) {
+            'course_section' => function ($record) {
                 global $DB;
                 $coursesections = $DB->get_record('course_sections', ['id' => $record->id], 'section');
-                $url = new \moodle_url('/course/view.php#section-'.$coursesections->section, ['id' => $record->courseid]);
+                $url = new \moodle_url('/course/view.php#section-' . $coursesections->section, ['id' => $record->courseid]);
                 return $url->out();
             },
-            'question' => function($record, $courseid = null) {
-                $url = new \moodle_url('/question/bank/previewquestion/preview.php',
-                    ['id' => $record->id, 'courseid' => $courseid]);
+            'question' => function ($record, $courseid = null) {
+                $url = new \moodle_url(
+                    '/question/bank/previewquestion/preview.php',
+                    ['id' => $record->id, 'courseid' => $courseid]
+                );
                 return $url->out(false);
             },
-            'forum_post' => function($record) {
+            'forum_post' => function ($record) {
                 $url = new \moodle_url('/mod/forum/discuss.php', ['d' => $record->id]);
                 return $url->out(false);
             },
@@ -604,7 +605,7 @@ class helper {
             $modules = $DB->get_records('modules');
             $modulefunctions = [];
             foreach ($modules as $module) {
-                $modulefunctions[$module->name] = function($record) use ($module) {
+                $modulefunctions[$module->name] = function ($record) use ($module) {
                     global $DB;
                     $coursemodule = $DB->get_record('course_modules', ['module' => $module->id, 'instance' => ($record->moduleid ?? $record->id)], 'id');
                     if (empty($coursemodule)) {
@@ -624,9 +625,9 @@ class helper {
         }
 
         // Consider links from hand-coded table:column combinations.
-        if (! empty($linkmappings["{$table}:{$column}"])) {
+        if (!empty($linkmappings["{$table}:{$column}"])) {
             $type = $linkmappings["{$table}:{$column}"];
-            if (! empty($linktypes[$type]) ) {
+            if (!empty($linktypes[$type])) {
                 $linkfunction = $linktypes[$type];
                 return $linkfunction;
             }
@@ -659,8 +660,16 @@ class helper {
      * @param array $rowcounts The count/outcome for each row.
      * @param replace_error_handler $errorhandler
      */
-    public static function replace_text_in_a_record(int $rownum, string $table, string $columnname, string $search,
-            string $replace, int $id, &$rowcounts, replace_error_handler $errorhandler) {
+    public static function replace_text_in_a_record(
+        int $rownum,
+        string $table,
+        string $columnname,
+        string $search,
+        string $replace,
+        int $id,
+        &$rowcounts,
+        replace_error_handler $errorhandler
+    ) {
         global $DB;
 
         $column = self::get_column_info($table, $columnname);
@@ -668,7 +677,7 @@ class helper {
         // Enclose the column name by the proper quotes if it's a reserved word.
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
 
-        $record = $DB->get_record($table, array('id' => $id), $columnname);
+        $record = $DB->get_record($table, ['id' => $id], $columnname);
 
         if (!$record) {
             $rowcounts['error']++;
@@ -681,10 +690,10 @@ class helper {
 
         if (str_contains($record->$columnname, $search)) {
             $newstring = str_replace($search, $replace, $record->$columnname);
-            $DB->set_field($table, $columnname, $newstring, array('id' => $id)) ? $rowcounts['success']++ : $rowcounts['error']++;
+            $DB->set_field($table, $columnname, $newstring, ['id' => $id]) ? $rowcounts['success']++ : $rowcounts['error']++;
         } else if (str_contains($record->$columnname, $escapedsearchstring)) {
             $newstring = str_replace($escapedsearchstring, $replace, $record->$columnname);
-            $DB->set_field($table, $columnname, $newstring, array('id' => $id)) ? $rowcounts['success']++ : $rowcounts['error']++;
+            $DB->set_field($table, $columnname, $newstring, ['id' => $id]) ? $rowcounts['success']++ : $rowcounts['error']++;
         } else if (str_contains($record->$columnname, $replace)) {
             $rowcounts['replacematch']++;
         } else {
@@ -777,8 +786,11 @@ class helper {
             if (CLI_SCRIPT) {
                 cli_error(get_string('errormissingfields', 'tool_advancedreplace', implode(', ', $missingcolumns)));
             } else {
-                throw new \moodle_exception(get_string('errormissingfields', 'tool_advancedreplace',
-                    implode(', ', $missingcolumns)));
+                throw new \moodle_exception(get_string(
+                    'errormissingfields',
+                    'tool_advancedreplace',
+                    implode(', ', $missingcolumns)
+                ));
             }
         }
 
@@ -804,8 +816,16 @@ class helper {
                 $rowcounts['skipped']++;
             } else if ($type == 'db') {
                 // Replace the string.
-                self::replace_text_in_a_record($rownum, $record[$tableindex], $record[$columnindex],
-                    $record[$matchindex], $record[$replaceindex], $record[$idindex], $rowcounts, $errorhandler);
+                self::replace_text_in_a_record(
+                    $rownum,
+                    $record[$tableindex],
+                    $record[$columnindex],
+                    $record[$matchindex],
+                    $record[$replaceindex],
+                    $record[$idindex],
+                    $rowcounts,
+                    $errorhandler
+                );
             } else if ($type == 'files') {
                 $filerecord = [
                     'contextid' => $record[$contextidindex],
@@ -817,13 +837,21 @@ class helper {
                     'mimetype' => $record[$mimeindex],
                 ];
 
-                self::replace_text_in_file($rownum, $filerecord, $record[$matchindex], $record[$replaceindex],
-                    $record[$internalindex], $rowcounts, $errorhandler);
+                self::replace_text_in_file(
+                    $rownum,
+                    $filerecord,
+                    $record[$matchindex],
+                    $record[$replaceindex],
+                    $record[$internalindex],
+                    $rowcounts,
+                    $errorhandler
+                );
             }
             // Update the progress bar.
             $progress->update_full(
-                100 * $rownum / $contentcount, $rowcounts['success']. " Replaced, ".$rowcounts['skipped']." Skipped, "
-                .$rowcounts['replacematch']." Already replaced, ".$rowcounts['error']." Errors."
+                100 * $rownum / $contentcount,
+                $rowcounts['success'] . " Replaced, " . $rowcounts['skipped'] . " Skipped, "
+                    . $rowcounts['replacematch'] . " Already replaced, " . $rowcounts['error'] . " Errors."
             );
         }
         $csvimport->cleanup();
@@ -860,8 +888,15 @@ class helper {
      * @param array $rowcounts The count/outcome for each row.
      * @param replace_error_handler $errorhandler
      */
-    public static function replace_text_in_file(int $rownum, array $filerecord, string $match, string $replace, string $internal,
-            array &$rowcounts, replace_error_handler $errorhandler) {
+    public static function replace_text_in_file(
+        int $rownum,
+        array $filerecord,
+        string $match,
+        string $replace,
+        string $internal,
+        array &$rowcounts,
+        replace_error_handler $errorhandler
+    ) {
         $fs = get_file_storage();
         $file = $fs->get_file(
             $filerecord['contextid'],
@@ -891,7 +926,6 @@ class helper {
 
             unlink($newzip);
         } else {
-
             $content = $file->get_content();
             $newcontent = str_replace($match, $replace, $content);
 
@@ -924,8 +958,15 @@ class helper {
      * @param array $rowcounts The count/outcome for each row.
      * @param replace_error_handler $errorhandler
      */
-    public static function replace_text_in_zip(int $rownum, \stored_file $zipfile, string $searchstring, string $replacestring,
-            string $internalfilename, array &$rowcounts, replace_error_handler $errorhandler) {
+    public static function replace_text_in_zip(
+        int $rownum,
+        \stored_file $zipfile,
+        string $searchstring,
+        string $replacestring,
+        string $internalfilename,
+        array &$rowcounts,
+        replace_error_handler $errorhandler
+    ) {
 
         // Create a temporary file path for working with the ZIP file.
         $tempzip = make_request_directory() . '/' . $zipfile->get_filename();

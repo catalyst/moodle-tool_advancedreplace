@@ -57,12 +57,15 @@ if ($form->is_cancelled()) {
     redirect($redirect);
 } else if (!(get_config('tool_advancedreplace', 'allowuireplace'))) {
     echo $OUTPUT->heading(get_string('replacepageheader', 'tool_advancedreplace'));
-    echo html_writer::div(get_string('replace_warning', 'tool_advancedreplace',
-        '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;'), 'alert alert-warning');
+    echo html_writer::div(get_string(
+        'replace_warning',
+        'tool_advancedreplace',
+        '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;'
+    ), 'alert alert-warning');
     echo $OUTPUT->footer();
 } else if ($data = $form->get_data()) {
     $returnurl = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
-    $optionsyes = array('replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'draftid' => $data->csvfile);
+    $optionsyes = ['replace' => $replace, 'confirm' => 1, 'sesskey' => sesskey(), 'draftid' => $data->csvfile];
     $deleteurl = new moodle_url($url, $optionsyes);
     $deletebutton = new single_button($deleteurl, get_string('replace', 'tool_advancedreplace'), 'post');
     echo $OUTPUT->confirm(get_string('replacecheckdb', 'tool_advancedreplace'), $deletebutton, $returnurl);

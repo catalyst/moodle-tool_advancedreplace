@@ -24,7 +24,6 @@ namespace tool_advancedreplace\task;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class search_db extends \core\task\adhoc_task {
-
     /**
      * Action of task.
      */

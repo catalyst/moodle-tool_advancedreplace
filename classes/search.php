@@ -24,7 +24,6 @@ namespace tool_advancedreplace;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 abstract class search extends \core\persistent {
-
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [];
 
@@ -76,8 +75,8 @@ abstract class search extends \core\persistent {
      * @param bool $finalshard True if this is the last shard in the group
      * @return bool true if the task was queued
      */
-    public function queue_task(int $startid = 0, int $endid = 0, bool $finalshard=false): bool {
-        $adhoctask = new $this->adhoctask;
+    public function queue_task(int $startid = 0, int $endid = 0, bool $finalshard = false): bool {
+        $adhoctask = new $this->adhoctask();
         $customdata = [
             'searchid' => $this->get('id'),
         ];
