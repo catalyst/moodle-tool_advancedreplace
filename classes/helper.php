@@ -380,16 +380,18 @@ class helper {
         foreach ($records as $record) {
             if (!empty($linkfunction)) {
                 if ($table == 'question') {
+                    // If the question belongs to a course, set the fields to generate a proper link.
                     $question = \question_bank::load_question($record->id);
-                    $category = $DB->get_record('question_categories', ['id' => $question->category], '*', MUST_EXIST);
-                    $context = \context::instance_by_id($category->contextid);
-                    $course = $DB->get_record('course', ['id' => $context->instanceid]);
-                    $record->courseid = $course->id;
-                    $record->courseshortname = $course->shortname;
-                    $linkstring = $linkfunction($record, $course->id);
-                } else {
-                    $linkstring = $linkfunction($record);
+                    if (
+                        ($category = $DB->get_record('question_categories', ['id' => $question->category])) &&
+                        ($context = \context::instance_by_id($category->contextid, IGNORE_MISSING)) &&
+                        $context->contextlevel === CONTEXT_COURSE
+                    ) {
+                        $record->courseid = $context->instanceid;
+                        $record->courseshortname = $DB->get_field('course', 'shortname', ['id' => $context->instanceid]) ?: '';
+                    }
                 }
+                $linkstring = $linkfunction($record);
             }
 
             if (!$regex) {
@@ -574,10 +576,10 @@ class helper {
                 $url = new \moodle_url('/course/view.php#section-' . $coursesections->section, ['id' => $record->courseid]);
                 return $url->out();
             },
-            'question' => function ($record, $courseid = null) {
+            'question' => function ($record) {
                 $url = new \moodle_url(
                     '/question/bank/previewquestion/preview.php',
-                    ['id' => $record->id, 'courseid' => $courseid]
+                    ['id' => $record->id, 'courseid' => $record->courseid ?? SITEID]
                 );
                 return $url->out(false);
             },
