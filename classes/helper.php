@@ -499,10 +499,18 @@ class helper {
         $update = new \stdClass();
         $update->time = time();
         $update->percent = 0;
+
+        $tablec = 0;
+        $columnc = 0;
+
         foreach ($searchlist as $table => $columns) {
+            $tablec++;
             foreach ($columns as $column) {
                 $colname = $column->name;
                 $colstart = time();
+
+                mtrace("Searching in $table:$colname");
+                $columnc++;
 
                 // Show the table and column being searched.
                 $search->update_progress_bar("Searching in $table:$colname");
@@ -534,6 +542,7 @@ class helper {
             }
         }
 
+        mtrace("Searched in $columnc columns across $tablec tables");
         fclose($fp);
 
         // Display log output.
