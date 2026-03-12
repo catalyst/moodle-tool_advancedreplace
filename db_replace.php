@@ -60,7 +60,10 @@ if ($form->is_cancelled()) {
     echo html_writer::div(get_string(
         'replace_warning',
         'tool_advancedreplace',
-        '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;'
+        (object)[
+            'file' => '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;',
+            'command' => 'php admin/cli/cfg.php --component=tool_advancedreplace --name=allowuireplace --set=1'
+        ]
     ), 'alert alert-warning');
     echo $OUTPUT->footer();
 } else if ($data = $form->get_data()) {
