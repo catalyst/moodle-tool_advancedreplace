@@ -29,7 +29,7 @@ use progress_bar;
 use tool_advancedreplace\db_search;
 
 /**
- * Helper class to search and replace text throughout the whole database.
+ * Helper class to search and replace text throughout the whole edatabase.
  *
  * @package    tool_advancedreplace
  * @copyright  2024 Catalyst IT Australia Pty Ltd
