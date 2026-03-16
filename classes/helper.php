@@ -699,13 +699,13 @@ class helper {
 
         $escapedsearchstring = str_replace("\n", "\r\n", $search);
 
-        if (strpos($record->$columnname, $search) !== false) {
+        if (str_contains($record->$columnname, $search)) {
             $newstring = str_replace($search, $replace, $record->$columnname);
             $DB->set_field($table, $columnname, $newstring, ['id' => $id]) ? $rowcounts['success']++ : $rowcounts['error']++;
-        } else if (strpos($record->$columnname, $escapedsearchstring) !== false) {
+        } else if (str_contains($record->$columnname, $escapedsearchstring)) {
             $newstring = str_replace($escapedsearchstring, $replace, $record->$columnname);
             $DB->set_field($table, $columnname, $newstring, ['id' => $id]) ? $rowcounts['success']++ : $rowcounts['error']++;
-        } else if (strpos($record->$columnname, $replace) !== false) {
+        } else if (str_contains($record->$columnname, $replace)) {
             $rowcounts['replacematch']++;
         } else {
             $rowcounts['error']++;
