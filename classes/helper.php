@@ -21,7 +21,6 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/question/engine/bank.php');
 
-
 use core\exception\moodle_exception;
 use core_text;
 use csv_import_reader;
