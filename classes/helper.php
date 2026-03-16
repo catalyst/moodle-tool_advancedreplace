@@ -28,6 +28,7 @@ use database_column_info;
 use progress_bar;
 use tool_advancedreplace\db_search;
 
+
 /**
  * Helper class to search and replace text throughout the wholedatabase.
  *
