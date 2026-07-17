@@ -639,7 +639,7 @@ class file_search {
      */
     public static function get_id_from_csv(string $line): int {
         // Interpret the last line as a csv line.
-        $csv = str_getcsv($line);
+        $csv = str_getcsv($line, ",", "\"", "\\");
         // Check a few columns to ensure we have a valid line.
         if (empty($csv[self::CSV_CONTEXTID])) {
             return 0;
