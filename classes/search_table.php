@@ -223,6 +223,10 @@ class search_table extends \table_sql {
         $html = \html_writer::start_tag('pre', ['class' => $class, 'style' => $style]);
         $html .= htmlspecialchars($record->search);
         $html .= \html_writer::end_tag('pre');
+
+        $reporturl = new \moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $record->id]);
+        $html = \html_writer::link($reporturl, $html);
+
         return $html;
     }
 
@@ -345,8 +349,15 @@ class search_table extends \table_sql {
      */
     public function col_options($record): string {
         $options = [];
+        // Always show whether it's regex or plain text.
+        $options[] = $record->regex
+            ? get_string('field_regex', 'tool_advancedreplace')
+            : get_string('searchreportplaintext', 'tool_advancedreplace');
         $bool = ['regex', 'summary'];
         foreach (static::OPTIONS as $option) {
+            if ($option === 'regex') {
+                continue; // Already handled above.
+            }
             if (!empty($record->$option)) {
                 $name = get_string('field_' . $option, 'tool_advancedreplace');
                 // Add a space between comma seperated values.
@@ -383,7 +394,30 @@ class search_table extends \table_sql {
     public function format_output($record): string {
         $output = '';
         $output .= self::get_download_link($record);
+        $output .= self::get_report_link($record);
         return $output;
+    }
+
+    /**
+     * Returns a link to the paginated report view for a search result.
+     *
+     * @param stdClass $record
+     * @return string html for report link, or an empty string.
+     */
+    protected function get_report_link($record): string {
+        $search = $this->get_persistent($record);
+        $file = $search->get_file();
+        $temppath = $search->get_temp_filepath();
+
+        if (!$file && (!$record->matches || !file_exists($temppath))) {
+            return '';
+        }
+
+        $url = new \moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $record->id]);
+        return \html_writer::div(
+            \html_writer::link($url, get_string('searchreportview', 'tool_advancedreplace')),
+            'mt-1'
+        );
     }
 
     /**
