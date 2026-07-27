@@ -55,7 +55,7 @@ if ($form->is_cancelled()) {
         'tool_advancedreplace',
         (object)[
             'file' => '$CFG->forced_plugin_settings[\'tool_advancedreplace\'][\'allowuireplace\'] = 1;',
-            'command' => 'php admin/cli/cfg.php --component=tool_advancedreplace --name=allowuireplace --set=1'
+            'command' => 'php admin/cli/cfg.php --component=tool_advancedreplace --name=allowuireplace --set=1',
         ]
     ), 'alert alert-warning');
     echo $OUTPUT->footer();

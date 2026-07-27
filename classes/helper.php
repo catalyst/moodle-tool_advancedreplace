@@ -368,7 +368,7 @@ class helper {
             fputcsv($stream, [
                 $table,
                 $column->name,
-            ]);
+            ], ',', '"', '\\');
             $results['count'] = 1;
             return $results;
         }
@@ -404,7 +404,7 @@ class helper {
                     $record->{$column->name},
                     '',
                     $linkstring,
-                ]);
+                ], ',', '"', '\\');
                 $count++;
             } else {
                 // Process records to show result for each match.
@@ -427,7 +427,7 @@ class helper {
                             $match,
                             '',
                             $linkstring,
-                        ]);
+                        ], ',', '"', '\\');
                         $count++;
                     }
                 }
@@ -483,9 +483,9 @@ class helper {
         $fp = fopen($output, 'w');
         // Show header.
         if (!$search->get('summary')) {
-            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link']);
+            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link'], ',', '"', '\\');
         } else {
-            fputcsv($fp, ['table', 'column']);
+            fputcsv($fp, ['table', 'column'], ',', '"', '\\');
         }
 
         // Perform the search.
@@ -618,14 +618,24 @@ class helper {
             foreach ($modules as $module) {
                 $modulefunctions[$module->name] = function ($record) use ($module) {
                     global $DB;
-                    $coursemodule = $DB->get_record('course_modules', ['module' => $module->id, 'instance' => ($record->moduleid ?? $record->id)], 'id');
+                    $coursemodule = $DB->get_record(
+                        'course_modules',
+                        ['module' => $module->id, 'instance' => ($record->moduleid ?? $record->id)],
+                        'id'
+                    );
                     if (empty($coursemodule)) {
                         return null;
                     } else if ($module->name == 'book' && isset($record->moduleid)) {
-                            $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'chapterid' => $record->id]);
+                            $url = new \moodle_url(
+                                "/mod/{$module->name}/view.php",
+                                ['id' => $coursemodule->id, 'chapterid' => $record->id]
+                            );
                             return $url->out(false);
                     } else if ($module->name == 'lesson'  && isset($record->moduleid)) {
-                        $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id, 'pageid' => $record->id]);
+                        $url = new \moodle_url(
+                            "/mod/{$module->name}/view.php",
+                            ['id' => $coursemodule->id, 'pageid' => $record->id]
+                        );
                         return $url->out(false);
                     } else {
                         $url = new \moodle_url("/mod/{$module->name}/view.php", ['id' => $coursemodule->id]);
