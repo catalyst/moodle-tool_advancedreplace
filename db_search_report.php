@@ -85,6 +85,21 @@ echo \html_writer::div(
     'mb-3'
 );
 
+$requeueurl = new moodle_url('/admin/tool/advancedreplace/db_search.php', [
+    'requeue' => $id,
+    'sesskey' => sesskey(),
+]);
+if ($search->is_finished()) {
+    $requeuelink = new \action_link(
+        $requeueurl,
+        get_string('requeueoptions', 'tool_advancedreplace'),
+        new \confirm_action(get_string('confirm_requeue', 'tool_advancedreplace')),
+        ['class' => 'btn btn-secondary'],
+        new \pix_icon('t/reload', '')
+    );
+    echo $OUTPUT->render($requeuelink);
+}
+
 // Summary info box.
 $record = $search->to_record();
 $dtformat = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
