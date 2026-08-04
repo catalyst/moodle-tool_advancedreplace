@@ -69,6 +69,30 @@ abstract class search extends \core\persistent {
     }
 
     /**
+     * Resets all progress fields, deletes existing output, and requeues the search task.
+     *
+     * @return void
+     */
+    public function reset_and_requeue(): void {
+        // Delete the stored pluginfile result if present.
+        if ($file = $this->get_file()) {
+            $file->delete();
+        }
+        // Delete any in-progress temp file.
+        $tempfile = $this->get_temp_filepath();
+        if (!empty($tempfile) && file_exists($tempfile)) {
+            @unlink($tempfile);
+        }
+        // Reset progress tracking fields.
+        $this->set('timestart', 0);
+        $this->set('timeend', 0);
+        $this->set('progress', 0);
+        $this->set('matches', 0);
+        $this->update();
+        $this->queue_task();
+    }
+
+    /**
      * Queues a search task to be run
      * @param int $startid minimum id to be included
      * @param int $endid maximum id to be included

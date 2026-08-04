@@ -33,6 +33,7 @@ admin_externalpage_setup('tool_advancedreplace_search');
 $id = optional_param('id', null, PARAM_INT);
 $delete = optional_param('delete', null, PARAM_INT);
 $copy = optional_param('copy', null, PARAM_INT);
+$requeue = optional_param('requeue', null, PARAM_INT);
 
 if (isset($copy)) {
     $id = 0;
@@ -44,6 +45,20 @@ if (isset($delete)) {
     $search->delete();
     \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));
     redirect($url);
+}
+
+if (isset($requeue)) {
+    require_sesskey();
+    $search = new \tool_advancedreplace\db_search($requeue);
+    if (!$search->get('id')) {
+        throw new \moodle_exception('invalidrecordid');
+    }
+    if (!$search->is_finished()) {
+        throw new \moodle_exception('errornotfinished', 'tool_advancedreplace');
+    }
+    $search->reset_and_requeue();
+    \core\notification::success(get_string('searchrequeued', 'tool_advancedreplace'));
+    redirect(new moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $requeue]));
 }
 
 if (isset($id)) {

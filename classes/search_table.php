@@ -428,6 +428,7 @@ class search_table extends \table_sql {
      */
     public function col_actions($record): string {
         $actions = '';
+        $actions .= self::get_requeue_link($record);
         $actions .= self::get_copy_link($record);
         $actions .= self::get_delete_link($record);
         return $actions;
@@ -488,6 +489,31 @@ class search_table extends \table_sql {
         return $OUTPUT->render($actionlink);
     }
 
+
+    /**
+     * Returns a requeue link for a search. Only shown when the search is finished.
+     *
+     * @param stdClass $record
+     * @return string html for requeue link, or an empty string.
+     */
+    protected function get_requeue_link($record): string {
+        global $OUTPUT;
+
+        $search = $this->get_persistent($record);
+        if (!$search->is_finished()) {
+            return $OUTPUT->pix_icon('spacer', '', 'moodle');
+        }
+
+        $url = new \moodle_url(
+            '/admin/tool/advancedreplace/' . $this->urlfragment,
+            ['requeue' => $record->id, 'sesskey' => sesskey()]
+        );
+        $action = new \confirm_action(get_string('confirm_requeue', 'tool_advancedreplace'));
+        $requeueicon = $OUTPUT->render(new \pix_icon('t/reload', get_string('requeueoptions', 'tool_advancedreplace')));
+
+        $actionlink = new \action_link($url, $requeueicon, $action);
+        return $OUTPUT->render($actionlink);
+    }
 
     /**
      * Returns a copy link for a search.
