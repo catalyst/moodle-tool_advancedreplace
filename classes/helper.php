@@ -659,9 +659,7 @@ class helper {
                 return $url->out();
             },
             'course_section' => function ($record) {
-                global $DB;
-                $coursesections = $DB->get_record('course_sections', ['id' => $record->id], 'section');
-                $url = new \moodle_url('/course/view.php#section-' . $coursesections->section, ['id' => $record->courseid]);
+                $url = new \moodle_url('/course/section.php', ['id' => $record->id]);
                 return $url->out();
             },
             'question' => function ($record) {
@@ -672,7 +670,13 @@ class helper {
                 return $url->out(false);
             },
             'forum_post' => function ($record) {
-                $url = new \moodle_url('/mod/forum/discuss.php', ['d' => $record->id]);
+                global $DB;
+                $discussionid = $DB->get_field('forum_posts', 'discussion', ['id' => $record->id]);
+                if (!empty($discussionid)) {
+                    $url = new \moodle_url('/mod/forum/discuss.php', ['d' => $discussionid], 'p' . $record->id);
+                } else {
+                    $url = new \moodle_url('/mod/forum/post.php', ['edit' => $record->id]);
+                }
                 return $url->out(false);
             },
         ];
