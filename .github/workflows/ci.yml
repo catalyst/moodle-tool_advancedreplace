@@ -6,3 +6,6 @@ on: [push, pull_request]
 jobs:
   ci:
     uses: catalyst/catalyst-moodle-workflows/.github/workflows/ci.yml@main
+    secrets: inherit
+    with:
+      enable_composer_publish: true
