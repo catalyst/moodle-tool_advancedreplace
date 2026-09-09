@@ -420,6 +420,131 @@ final class helper_test extends \advanced_testcase {
     }
 
     /**
+     * Search results must still be correct and complete when rows span multiple id-range batch
+     * windows (helper::$searchbatchsize), including matches in later windows and windows with no
+     * matches at all.
+     *
+     * @covers \tool_advancedreplace\helper::search_column
+     */
+    public function test_search_column_across_multiple_batches(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        // Use a small batch size so a handful of rows already spans several batch windows,
+        // without needing to insert thousands of rows to exercise the batching logic.
+        $originalbatchsize = helper::$searchbatchsize;
+        helper::$searchbatchsize = 3;
+
+        try {
+            $searchstring = 'FINDTHISUNIQUETEXT';
+
+            // Insert more rows than the batch size, with matches spread across the id range,
+            // including the first and last rows, so matches fall in several different windows.
+            $matchingids = [];
+            for ($i = 0; $i < 10; $i++) {
+                $ismatch = ($i % 3 === 0);
+                $description = $ismatch
+                    ? "Category $i contains $searchstring in its description"
+                    : "Category $i has no interesting content";
+                $id = $DB->insert_record('course_categories', (object) [
+                    'name' => 'Batch test category ' . $i,
+                    'path' => '/',
+                    'description' => $description,
+                ]);
+                if ($ismatch) {
+                    $matchingids[] = $id;
+                }
+            }
+
+            $search = new db_search(0, (object) [
+                'search' => $searchstring,
+                'tables' => 'course_categories:description',
+                'origin' => 'phpunit',
+            ]);
+            $search->create();
+
+            $columns = $DB->get_columns('course_categories');
+            $column = $columns['description'];
+
+            // Use a stream, as only the streaming code path performs batching.
+            $tmpfile = tempnam(sys_get_temp_dir(), 'tool_advancedreplace_test_');
+            $fp = fopen($tmpfile, 'w');
+            $result = helper::search_column($search, 'course_categories', $column, $fp);
+            fclose($fp);
+
+            $rows = array_filter(array_map('str_getcsv', file($tmpfile)));
+            unlink($tmpfile);
+
+            // All matches should be found exactly once, regardless of which batch window they fall in.
+            $this->assertEquals(count($matchingids), $result['count']);
+            $this->assertCount(count($matchingids), $rows);
+
+            $foundids = array_map(fn($row) => (int) $row[4], $rows);
+            sort($foundids);
+            sort($matchingids);
+            $this->assertEquals($matchingids, $foundids);
+        } finally {
+            helper::$searchbatchsize = $originalbatchsize;
+        }
+    }
+
+    /**
+     * Summary search must still find a match even when the only matching row falls in a later
+     * id-range batch window, not just the first one searched.
+     *
+     * @covers \tool_advancedreplace\helper::search_column
+     */
+    public function test_search_column_summary_across_multiple_batches(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $originalbatchsize = helper::$searchbatchsize;
+        helper::$searchbatchsize = 2;
+
+        try {
+            $searchstring = 'FINDTHISUNIQUETEXTSUMMARY';
+
+            // Only the last row matches, so earlier (empty) batch windows must not stop the search early.
+            for ($i = 0; $i < 6; $i++) {
+                $ismatch = ($i === 5);
+                $description = $ismatch
+                    ? "Category $i contains $searchstring in its description"
+                    : "Category $i has no interesting content";
+                $DB->insert_record('course_categories', (object) [
+                    'name' => 'Summary batch test category ' . $i,
+                    'path' => '/',
+                    'description' => $description,
+                ]);
+            }
+
+            $search = new db_search(0, (object) [
+                'search' => $searchstring,
+                'tables' => 'course_categories:description',
+                'summary' => 1,
+                'origin' => 'phpunit',
+            ]);
+            $search->create();
+
+            $columns = $DB->get_columns('course_categories');
+            $column = $columns['description'];
+
+            $tmpfile = tempnam(sys_get_temp_dir(), 'tool_advancedreplace_test_');
+            $fp = fopen($tmpfile, 'w');
+            $result = helper::search_column($search, 'course_categories', $column, $fp);
+            fclose($fp);
+
+            $rows = array_filter(array_map('str_getcsv', file($tmpfile)));
+            unlink($tmpfile);
+
+            $this->assertEquals(1, $result['count']);
+            $this->assertCount(1, $rows);
+            $this->assertEquals(['course_categories', 'description'], $rows[0]);
+        } finally {
+            helper::$searchbatchsize = $originalbatchsize;
+        }
+    }
+
+    /**
      * Test for replace_text_in_a_record
      *
      * @covers \tool_advancedreplace\helper::replace_text_in_a_record

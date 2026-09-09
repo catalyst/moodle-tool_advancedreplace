@@ -47,6 +47,20 @@ class helper {
     ];
 
     /**
+     * @var int Maximum number of ids to scan per query when searching a table/column.
+     *
+     * Some columns (e.g. large JSON/text blobs) can contain very large values. If a single query scans
+     * the whole table, the database may need to detoast/decompress many large values within one query
+     * execution, which can exceed internal memory allocation limits (e.g. PostgreSQL's ~1GB single
+     * allocation limit). Searching in bounded id-range windows keeps the amount of data handled by any
+     * one query execution bounded, regardless of how much heavy data a table/column contains.
+     *
+     * A static property (rather than a constant) so tests can override it to exercise batching logic
+     * without needing to insert thousands of rows.
+     **/
+    public static int $searchbatchsize = 500;
+
+    /**
      * Get columns to search for in a table.
      *
      * @param db_search $search persistent record
@@ -257,9 +271,18 @@ class helper {
      * @param db_search $search persistent record.
      * @param string $table The table to search.
      * @param database_column_info $column The column to search.
+     * @param int $lastid Only include rows with id greater than this (exclusive lower bound for batching).
+     * @param int $maxid If greater than 0, only include rows with id less than or equal to this
+     *                    (inclusive upper bound for batching).
      * @return array [$sql, $params]
      */
-    private static function build_search_query(db_search $search, string $table, database_column_info $column): array {
+    private static function build_search_query(
+        db_search $search,
+        string $table,
+        database_column_info $column,
+        int $lastid = 0,
+        int $maxid = 0
+    ): array {
         global $DB;
 
         // Check if column meta type can be searched.
@@ -297,6 +320,13 @@ class helper {
             $params['pattern'] = $search->get('search');
         }
 
+        // Restrict to an id window, so a single query only ever scans a bounded number of rows.
+        if ($lastid > 0 || $maxid > 0) {
+            $wheresql[] = "$tablealias.id > :lastid AND $tablealias.id <= :maxid";
+            $params['lastid'] = $lastid;
+            $params['maxid'] = $maxid;
+        }
+
         // Build query.
         $wheresql = implode(' AND ', $wheresql);
         if (!empty($coursefield)) {
@@ -324,6 +354,19 @@ class helper {
     }
 
     /**
+     * Get the highest id value in a table, used to bound batched id-range searches.
+     *
+     * @param string $table The table to check.
+     * @return int The maximum id, or 0 if the table is empty.
+     */
+    private static function get_max_id(string $table): int {
+        global $DB;
+
+        $maxid = $DB->get_field_sql("SELECT MAX(id) FROM {" . $table . "}");
+        return (int) ($maxid ?: 0);
+    }
+
+    /**
      * Perform a search on a table and column.
      *
      * @param db_search $search persistent record.
@@ -344,95 +387,131 @@ class helper {
             throw new \moodle_exception(get_string('errorregexnotsupported', 'tool_advancedreplace'));
         }
 
-        // Build search.
-        [$sql, $params] = self::build_search_query($search, $table, $column);
-        if (empty($sql)) {
-            return $results;
-        }
-
-        // Get records.
-        $limit = $summary ? 1 : 0;
-        $records = $DB->get_recordset_sql($sql, $params, 0, $limit);
-        if (!$records->valid()) {
-            return $results;
-        }
-
-        // If no stream, return the records.
+        // If no stream, return the records in one go. Used by tests and other small-scale callers.
         if (empty($stream)) {
+            [$sql, $params] = self::build_search_query($search, $table, $column);
+            if (empty($sql)) {
+                return $results;
+            }
+
+            $limit = $summary ? 1 : 0;
+            $records = $DB->get_recordset_sql($sql, $params, 0, $limit);
+            if (!$records->valid()) {
+                return $results;
+            }
+
             $results[$table][$column->name] = $records;
             return $results;
         }
 
-        // Output summary search.
-        if ($summary) {
-            fputcsv($stream, [
-                $table,
-                $column->name,
-            ], ',', '"', '\\');
-            $results['count'] = 1;
+        $maxid = self::get_max_id($table);
+        if ($maxid <= 0) {
+            // Table is empty, nothing to search.
             return $results;
         }
 
-        // Output full search.
+        // Output the results in bounded id-range batches. Scanning the whole table in a single
+        // query can require the database to detoast/decompress many large column values within
+        // one query execution, which can exceed internal memory allocation limits when a table
+        // contains heavy data (e.g. large JSON/text blobs). Batching by id keeps the amount of
+        // data any single query needs to handle bounded, regardless of the table/column.
         $count = 0;
+        $found = false;
         $linkstring = '';
         $linkfunction = self::find_link_function($table, $column->name);
-        foreach ($records as $record) {
-            if (!empty($linkfunction)) {
-                if ($table == 'question') {
-                    // If the question belongs to a course, set the fields to generate a proper link.
-                    $question = \question_bank::load_question($record->id);
-                    if (
-                        ($category = $DB->get_record('question_categories', ['id' => $question->category])) &&
-                        ($context = \context::instance_by_id($category->contextid, IGNORE_MISSING)) &&
-                        $context->contextlevel === CONTEXT_COURSE
-                    ) {
-                        $record->courseid = $context->instanceid;
-                        $record->courseshortname = $DB->get_field('course', 'shortname', ['id' => $context->instanceid]) ?: '';
-                    }
-                }
-                $linkstring = $linkfunction($record);
+
+        $lastid = 0;
+        while ($lastid < $maxid) {
+            $windowmax = min($lastid + self::$searchbatchsize, $maxid);
+            [$sql, $params] = self::build_search_query($search, $table, $column, $lastid, $windowmax);
+            $lastid = $windowmax;
+
+            if (empty($sql)) {
+                break;
             }
 
-            if (!$regex) {
+            $records = $DB->get_recordset_sql($sql, $params);
+            foreach ($records as $record) {
+                if ($summary) {
+                    $found = true;
+                    break;
+                }
+
+                if (!empty($linkfunction)) {
+                    if ($table == 'question') {
+                        // If the question belongs to a course, set the fields to generate a proper link.
+                        $question = \question_bank::load_question($record->id);
+                        if (
+                            ($category = $DB->get_record('question_categories', ['id' => $question->category])) &&
+                            ($context = \context::instance_by_id($category->contextid, IGNORE_MISSING)) &&
+                            $context->contextlevel === CONTEXT_COURSE
+                        ) {
+                            $record->courseid = $context->instanceid;
+                            $record->courseshortname =
+                                $DB->get_field('course', 'shortname', ['id' => $context->instanceid]) ?: '';
+                        }
+                    }
+                    $linkstring = $linkfunction($record);
+                }
+
+                if (!$regex) {
+                    fputcsv($stream, [
+                        $table,
+                        $column->name,
+                        $record->courseid ?? '',
+                        $record->courseshortname ?? '',
+                        $record->id,
+                        $record->{$column->name},
+                        '',
+                        $linkstring,
+                    ], ',', '"', '\\');
+                    $count++;
+                } else {
+                    // Process records to show result for each match.
+                    $data = $record->{$column->name};
+
+                    // Replace "/" with "\/", as it is used as delimiters.
+                    $pattern = str_replace('/', '\\/', $search->get('search'));
+
+                    // Perform the regular expression search.
+                    preg_match_all("/" . $pattern . "/", $data, $matches);
+
+                    if (!empty($matches[0])) {
+                        foreach ($matches[0] as $match) {
+                            fputcsv($stream, [
+                                $table,
+                                $column->name,
+                                $record->courseid ?? '',
+                                $record->courseshortname ?? '',
+                                $record->id,
+                                $match,
+                                '',
+                                $linkstring,
+                            ], ',', '"', '\\');
+                            $count++;
+                        }
+                    }
+                }
+            }
+            $records->close();
+
+            if ($summary && $found) {
+                break;
+            }
+        }
+
+        // Output summary search.
+        if ($summary) {
+            if ($found) {
                 fputcsv($stream, [
                     $table,
                     $column->name,
-                    $record->courseid ?? '',
-                    $record->courseshortname ?? '',
-                    $record->id,
-                    $record->{$column->name},
-                    '',
-                    $linkstring,
                 ], ',', '"', '\\');
-                $count++;
-            } else {
-                // Process records to show result for each match.
-                $data = $record->{$column->name};
-
-                // Replace "/" with "\/", as it is used as delimiters.
-                $pattern = str_replace('/', '\\/', $search->get('search'));
-
-                // Perform the regular expression search.
-                preg_match_all("/" . $pattern . "/", $data, $matches);
-
-                if (!empty($matches[0])) {
-                    foreach ($matches[0] as $match) {
-                        fputcsv($stream, [
-                            $table,
-                            $column->name,
-                            $record->courseid ?? '',
-                            $record->courseshortname ?? '',
-                            $record->id,
-                            $match,
-                            '',
-                            $linkstring,
-                        ], ',', '"', '\\');
-                        $count++;
-                    }
-                }
+                $results['count'] = 1;
             }
+            return $results;
         }
+
         $results['count'] = $count;
         return $results;
     }
