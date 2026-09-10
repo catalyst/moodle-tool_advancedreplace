@@ -338,7 +338,7 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function format_matches($record): string {
-        return $record->matches;
+        return number_format($record->matches);
     }
 
     /**

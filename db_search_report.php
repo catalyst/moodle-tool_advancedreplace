@@ -142,7 +142,7 @@ if (!empty($record->timestart)) {
 
 // Matches.
 $headerrow .= \html_writer::tag('th', get_string('field_matches', 'tool_advancedreplace'));
-$valuerow  .= \html_writer::tag('td', $record->matches);
+$valuerow  .= \html_writer::tag('td', number_format($record->matches));
 
 // Options.
 $optionscols = ['regex', 'prematch', 'tables', 'skiptables', 'skipcolumns', 'summary'];
