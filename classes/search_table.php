@@ -349,10 +349,14 @@ class search_table extends \table_sql {
      */
     public function col_options($record): string {
         $options = [];
-        // Always show whether it's regex or plain text.
-        $options[] = $record->regex
-            ? get_string('field_regex', 'tool_advancedreplace')
-            : get_string('searchreportplaintext', 'tool_advancedreplace');
+        // Always show whether it's regex or plain text. File searches only support regex patterns.
+        if (property_exists($record, 'regex')) {
+            $options[] = $record->regex
+                ? get_string('field_regex', 'tool_advancedreplace')
+                : get_string('searchreportplaintext', 'tool_advancedreplace');
+        } else {
+            $options[] = get_string('field_regex', 'tool_advancedreplace');
+        }
         $bool = ['regex', 'summary'];
         foreach (static::OPTIONS as $option) {
             if ($option === 'regex') {
