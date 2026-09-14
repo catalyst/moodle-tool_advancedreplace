@@ -47,7 +47,7 @@ class helper {
     ];
 
     /**
-     * @var int Maximum number of ids to scan per query when searching a table/column.
+     * @var int Maximum number of rows to scan per query when searching a table/column.
      *
      * Some columns (e.g. large JSON/text blobs) can contain very large values. If a single query scans
      * the whole table, the database may need to detoast/decompress many large values within one query
@@ -422,7 +422,15 @@ class helper {
 
         $lastid = 0;
         while ($lastid < $maxid) {
-            $windowmax = min($lastid + self::$searchbatchsize, $maxid);
+            // Batch by existing rows because gaps in IDs can lead to repeated empty queries.
+            $params = ['lastid' => $lastid, 'maxid' => $maxid];
+            $batch = $DB->get_records_select($table, 'id > :lastid AND id <= :maxid', $params, 'id ASC', 'id', 0, self::$searchbatchsize);
+
+            if (!$batch) {
+                break;
+            }
+
+            $windowmax = array_key_last($batch);
             [$sql, $params] = self::build_search_query($search, $table, $column, $lastid, $windowmax);
             $lastid = $windowmax;
 
