@@ -472,7 +472,10 @@ final class helper_test extends \advanced_testcase {
             $result = helper::search_column($search, 'course_categories', $column, $fp);
             fclose($fp);
 
-            $rows = array_filter(array_map('str_getcsv', file($tmpfile)));
+            $rows = array_filter(array_map(
+                static fn(string $line): array => str_getcsv($line, ',', '"', '\\'),
+                file($tmpfile)
+            ));
             unlink($tmpfile);
 
             // All matches should be found exactly once, regardless of which batch window they fall in.
@@ -533,7 +536,10 @@ final class helper_test extends \advanced_testcase {
             $result = helper::search_column($search, 'course_categories', $column, $fp);
             fclose($fp);
 
-            $rows = array_filter(array_map('str_getcsv', file($tmpfile)));
+            $rows = array_filter(array_map(
+                static fn(string $line): array => str_getcsv($line, ',', '"', '\\'),
+                file($tmpfile)
+            ));
             unlink($tmpfile);
 
             $this->assertEquals(1, $result['count']);
