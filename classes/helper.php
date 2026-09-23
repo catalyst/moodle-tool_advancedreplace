@@ -333,7 +333,8 @@ class helper {
             $sql = "SELECT $tablealias.id,
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
-                           c.shortname as courseshortname
+                           c.shortname as courseshortname,
+                           c.timemodified as timemodified
                       FROM {" . $table . "} $tablealias
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                      WHERE $wheresql";
@@ -341,16 +342,34 @@ class helper {
             $sql = "SELECT {$supportedtablemappings[$table][0]}
                            $tablealias.$columnname,
                            c.id as courseid,
-                           c.shortname as courseshortname
+                           c.shortname as courseshortname,
+                           c.timemodified as timemodified
                       FROM {" . $table . "} $tablealias
                  {$supportedtablemappings[$table][1]}
                  LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
         } else {
-            $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
+            if (self::has_timemodifed_column($table)) {
+                $sql = "SELECT id, $columnname, timemodified FROM {" . $table . "} $tablealias WHERE $wheresql";
+            } else {
+                $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
+            }
         }
 
         return [$sql, $params];
+    }
+
+    /**
+     * Returns true if the table has a timemodified column.
+     *
+     * @param string $table The table to check.
+     * @return bool
+     */
+    private static function has_timemodifed_column(string $table): bool {
+        global $DB;
+
+        $dbman = $DB->get_manager();
+        return $dbman->field_exists($table, 'timemodified');
     }
 
     /**
@@ -381,6 +400,7 @@ class helper {
         $results = [];
         $regex = $search->get('regex');
         $summary = $search->get('summary');
+        $dtformat = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
 
         // If using a regex search make sure the database supports them.
         if ($regex && !$DB->sql_regex_supported()) {
@@ -464,6 +484,7 @@ class helper {
                         $record->{$column->name},
                         '',
                         $linkstring,
+                        !empty($record->timemodified) ? userdate($record->timemodified, $dtformat) : '-',
                     ], ',', '"', '\\');
                     $count++;
                 } else {
@@ -487,6 +508,7 @@ class helper {
                                 $match,
                                 '',
                                 $linkstring,
+                                !empty($record->timemodified) ? userdate($record->timemodified, $dtformat) : '-',
                             ], ',', '"', '\\');
                             $count++;
                         }
@@ -562,7 +584,10 @@ class helper {
         $fp = fopen($output, 'w');
         // Show header.
         if (!$search->get('summary')) {
-            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link'], ',', '"', '\\');
+            fputcsv(
+                $fp,
+                ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link', 'timemodified'],
+            );
         } else {
             fputcsv($fp, ['table', 'column'], ',', '"', '\\');
         }
