@@ -296,6 +296,7 @@ class helper {
         $wheresql = [];
         $params = [];
 
+        // Special SQL fragments for specific tables.
         static $supportedtablemappings = [
             'course_sections' => ['t.id as id, section', ''],
             'book_chapters' => ['t.bookid as moduleid, t.id as id,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
@@ -330,24 +331,34 @@ class helper {
         // Build query.
         $wheresql = implode(' AND ', $wheresql);
         if (!empty($coursefield)) {
+            // Include course info based on a course ID reference.
             $sql = "SELECT $tablealias.id,
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
-                           c.shortname as courseshortname
+                           c.shortname as courseshortname,
+                           c.timemodified as timemodified
                       FROM {" . $table . "} $tablealias
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                      WHERE $wheresql";
         } else if (isset($supportedtablemappings[$table])) {
+            // Inclcde course info based on specially supplied SQL.
             $sql = "SELECT {$supportedtablemappings[$table][0]}
                            $tablealias.$columnname,
                            c.id as courseid,
-                           c.shortname as courseshortname
+                           c.shortname as courseshortname,
+                           c.timemodified as timemodified
                       FROM {" . $table . "} $tablealias
                  {$supportedtablemappings[$table][1]}
                  LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
         } else {
-            $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
+            if ($table == 'course') {
+                // Get time modified for course.
+                $sql = "SELECT id, $columnname, timemodified FROM {" . $table . "} $tablealias WHERE $wheresql";
+            } else {
+                // Time modified will be blank for all other tables.
+                $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
+            }
         }
 
         return [$sql, $params];
@@ -381,6 +392,7 @@ class helper {
         $results = [];
         $regex = $search->get('regex');
         $summary = $search->get('summary');
+        $dtformat = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
 
         // If using a regex search make sure the database supports them.
         if ($regex && !$DB->sql_regex_supported()) {
@@ -464,6 +476,7 @@ class helper {
                         $record->{$column->name},
                         '',
                         $linkstring,
+                        !empty($record->timemodified) ? userdate($record->timemodified, $dtformat) : '-',
                     ], ',', '"', '\\');
                     $count++;
                 } else {
@@ -487,6 +500,7 @@ class helper {
                                 $match,
                                 '',
                                 $linkstring,
+                                !empty($record->timemodified) ? userdate($record->timemodified, $dtformat) : '-',
                             ], ',', '"', '\\');
                             $count++;
                         }
@@ -562,7 +576,10 @@ class helper {
         $fp = fopen($output, 'w');
         // Show header.
         if (!$search->get('summary')) {
-            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link'], ',', '"', '\\');
+            fputcsv(
+                $fp,
+                ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link', 'timemodified'],
+            );
         } else {
             fputcsv($fp, ['table', 'column'], ',', '"', '\\');
         }
