@@ -354,6 +354,7 @@ class helper {
         $wheresql = [];
         $params = [];
 
+        // Special SQL fragments for specific tables.
         static $supportedtablemappings = [
             'course_sections' => ['t.id as id, section', ''],
             'book_chapters' => ['t.bookid as moduleid, t.id as id,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
@@ -388,6 +389,7 @@ class helper {
         // Build query.
         $wheresql = implode(' AND ', $wheresql);
         if (!empty($coursefield)) {
+            // Include course info based on a course ID reference.
             $sql = "SELECT $tablealias.id,
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
@@ -397,6 +399,7 @@ class helper {
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                      WHERE $wheresql";
         } else if (isset($supportedtablemappings[$table])) {
+            // Inclcde course info based on specially supplied SQL.
             $sql = "SELECT {$supportedtablemappings[$table][0]}
                            $tablealias.$columnname,
                            c.id as courseid,
@@ -407,27 +410,16 @@ class helper {
                  LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
         } else {
-            if (self::has_timemodifed_column($table)) {
+            if ($table == 'course') {
+                // Get time modified for course.
                 $sql = "SELECT id, $columnname, timemodified FROM {" . $table . "} $tablealias WHERE $wheresql";
             } else {
+                // Time modified will be blank for all other tables.
                 $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
             }
         }
 
         return [$sql, $params];
-    }
-
-    /**
-     * Returns true if the table has a timemodified column.
-     *
-     * @param string $table The table to check.
-     * @return bool
-     */
-    private static function has_timemodifed_column(string $table): bool {
-        global $DB;
-
-        $dbman = $DB->get_manager();
-        return $dbman->field_exists($table, 'timemodified');
     }
 
     /**

@@ -109,19 +109,16 @@ class file_search {
     */
     const CSV_REPLACE   = 12;
 
-    /**
-    * 10th column of csv output - the offset of the match within the file.
-    *
-    * @var int
-    */
-    const CSV_OFFSET    = 13;
 
-    /**
-    * 11th column of csv output - the text that was matched.
-    *
-    * @var int
-    */
-    const CSV_MATCH     = 14;
+    /** @var int Time modified of the course the file is associated with */
+    const CSV_COURSETIMEMODIFIED = 13;
+
+    /** @var int The offset of the match within the file. */
+    const CSV_OFFSET    = 14;
+
+    /** @var int The text that was matched. */
+    const CSV_MATCH     = 15;
+
 
     /** @var string PCRE modifiers used for file content and zip filename patterns (case insensitive). */
     const REGEX_MODIFIERS = 'i';
@@ -215,7 +212,7 @@ class file_search {
             $stream = fopen($output, 'w');
             $columnheaders = [
                 'fileid', 'courseid', 'shortname', 'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
-                'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
+                'mimetype', 'strategy', 'internal', 'replace', 'coursetimemodified', 'offset', 'match',
             ];
             fputcsv($stream, $columnheaders, ',', '"', '\\');
         }
@@ -229,7 +226,7 @@ class file_search {
         $sql = "
             SELECT
                 f.id, f.component, f.filearea, f.contextid, f.itemid, f.filename, f.filepath, f.mimetype,
-                c.id AS courseid, c.shortname
+                c.id AS courseid, c.shortname, c.timemodified
             FROM {files} f
             JOIN {context} ctx ON ctx.id = f.contextid
             LEFT JOIN {course_modules} cm ON cm.id = ctx.instanceid AND ctx.contextlevel = 70
@@ -516,6 +513,7 @@ class file_search {
             self::CSV_STRATEGY  => 'plain',
             self::CSV_INTERNAL  => '',
             self::CSV_REPLACE   => '',
+            self::CSV_COURSETIMEMODIFIED => $filerecord->timemodified,
         ];
         switch ($filerecord->mimetype) {
             case 'application/zip.h5p':
