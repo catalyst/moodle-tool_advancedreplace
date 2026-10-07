@@ -63,7 +63,6 @@ $string['field_name_help'] = 'Optional name to identify the search. Will also be
 $string['field_openzips'] = 'Open zips';
 $string['field_openzips_help'] = 'Open zip files, and search the sub files within.';
 $string['field_options'] = 'Options';
-$string['field_output'] = 'Output';
 $string['field_pattern'] = 'Regular Expression';
 $string['field_pattern_help'] = 'Regular expression to be matched in the files.';
 $string['field_prematch'] = 'Prematch filter';

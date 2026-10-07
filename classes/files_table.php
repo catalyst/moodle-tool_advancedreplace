@@ -48,7 +48,6 @@ class files_table extends search_table {
         'duration',
         'progress',
         'matches',
-        'output',
         'actions',
     ];
 
