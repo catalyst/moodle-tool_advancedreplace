@@ -103,11 +103,6 @@ if (isset($id)) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('searchpageheader', 'tool_advancedreplace'));
 
-    $table = new \tool_advancedreplace\search_table('tool_advancedreplace');
-    $table->define_baseurl($url);
-    $table->make_columns();
-    $table->out(40, false);
-
     $url->param('id', 0);
     $newurl = new \moodle_url($url, ['id' => 0]);
     $newbutton = new \single_button($newurl, get_string('newsearch', 'tool_advancedreplace'), 'GET');
@@ -117,6 +112,11 @@ if (isset($id)) {
 
     echo $OUTPUT->render($newbutton);
     echo $OUTPUT->render($replacebutton);
+
+    $table = new \tool_advancedreplace\search_table('tool_advancedreplace');
+    $table->define_baseurl($url);
+    $table->make_columns();
+    $table->out(40, false);
 }
 
 echo $OUTPUT->footer();
