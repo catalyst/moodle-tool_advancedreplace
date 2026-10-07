@@ -40,7 +40,6 @@ class files_table extends search_table {
 
     /** Columns to be displayed. */
     const COLUMNS = [
-        'id',
         'name',
         'userid',
         'pattern',
