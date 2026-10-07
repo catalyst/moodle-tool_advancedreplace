@@ -40,14 +40,14 @@ class files_table extends search_table {
 
     /** Columns to be displayed. */
     const COLUMNS = [
+        'progress',
+        'matches',
         'name',
         'userid',
         'pattern',
         'options',
         'timestart',
         'duration',
-        'progress',
-        'matches',
         'actions',
     ];
 
