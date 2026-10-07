@@ -26,6 +26,7 @@ $string['cleancachebutton'] = 'Purge all caches';
 $string['confirm_delete'] = 'Are you sure you want to delete the search? This will also delete the output.';
 $string['confirm_requeue'] = 'Are you sure you want to reset and requeue this search? This will delete the existing results and run the search again.';
 $string['copyoptions'] = 'Copy search options';
+$string['downloadcsv'] = 'Download csv ({$a})';
 $string['errorcolumntypenotsupported'] = 'Column type is not supported.';
 $string['errorfilenotfound'] = 'File not found.';
 $string['errorinvalidfile'] = 'The file is not valid.';
