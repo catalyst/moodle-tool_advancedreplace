@@ -69,7 +69,6 @@ class search_table extends \table_sql {
     const NOSORT_COLUMNS = [
         'options',
         'matches',
-        'output',
         'actions',
     ];
 
