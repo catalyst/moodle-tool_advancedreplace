@@ -50,7 +50,7 @@ class search_table extends \table_sql {
         'name',
         'userid',
         'search',
-        'timestart',
+        'timemodified',
         'duration',
         'actions',
     ];
@@ -91,7 +91,7 @@ class search_table extends \table_sql {
         $this->column_class('progress', 'text-right');
         $this->column_class('matches', 'text-right');
         $this->define_headers($headers);
-        // Default to showing the most recently active searches first (created, requeued, or updated).
+        // Default to showing the most recently modified searches first.
         $this->sortable(true, 'timemodified', SORT_DESC);
     }
 
@@ -294,27 +294,27 @@ class search_table extends \table_sql {
     }
 
     /**
-     * Generate content for timestart column.
+     * Generate content for timemodified column.
      *
      * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function col_timestart($record): string {
-        return $this->format_with_shards($record, 'timestart');
+    public function col_timemodified($record): string {
+        return $this->format_with_shards($record, 'timemodified');
     }
 
     /**
-     * Formats content for timestart column.
+     * Formats content for timemodified column.
      *
      * @param stdClass $record
      * @return string html used to display the manage column field.
      */
-    public function format_timestart($record): string {
-        if (empty($record->timestart)) {
+    public function format_timemodified($record): string {
+        if (empty($record->timemodified)) {
             return '';
         }
         $format = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
-        return userdate($record->timestart, $format);
+        return userdate($record->timemodified, $format);
     }
 
     /**
@@ -326,7 +326,6 @@ class search_table extends \table_sql {
     public function col_duration($record): string {
         return $this->format_with_shards($record, 'duration');
     }
-
 
     /**
      * Formats content for duration column.
@@ -347,6 +346,13 @@ class search_table extends \table_sql {
         }
 
         $attributes = $this->get_common_attributes($record);
+        $format = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
+        $starttitle = get_string('field_timestart', 'tool_advancedreplace') . ': ' . userdate($record->timestart, $format);
+        if (!empty($attributes['title'])) {
+            $attributes['title'] .= ' | ' . $starttitle;
+        } else {
+            $attributes['title'] = $starttitle;
+        }
         return \html_writer::span(format_time($duration), '', $attributes);
     }
 

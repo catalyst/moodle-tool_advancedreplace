@@ -45,7 +45,7 @@ class files_table extends search_table {
         'name',
         'userid',
         'search',
-        'timestart',
+        'timemodified',
         'duration',
         'actions',
     ];
