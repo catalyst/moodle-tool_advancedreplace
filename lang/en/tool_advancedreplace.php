@@ -94,6 +94,7 @@ $string['field_table'] = 'Table';
 $string['field_tables'] = 'Tables';
 $string['field_tables_help'] = 'Tables and columns to search. Separate multiple tables/columns with a comma. If not specified, search all tables and columns. Example format: <code>user,assign_submission:submission</code>';
 $string['field_timeend'] = 'End';
+$string['field_timemodified'] = 'Last modified';
 $string['field_timestart'] = 'Start';
 $string['field_userid'] = 'User';
 $string['field_zipfilenames'] = 'Zip filenames';
