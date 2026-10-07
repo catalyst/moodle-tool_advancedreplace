@@ -402,7 +402,7 @@ class search_table extends \table_sql {
                 if ($option === 'tables') {
                     // Display each table on its own line as an ordered list.
                     $items = array_map('trim', explode(',', $record->$option));
-                    $listitems = implode('', array_map(static function($item) {
+                    $listitems = implode('', array_map(static function ($item) {
                         return \html_writer::tag('li', s($item));
                     }, $items));
                     $options[] = $name . ':' . \html_writer::tag('ol', $listitems);
