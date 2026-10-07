@@ -451,7 +451,7 @@ class search_table extends \table_sql {
         $actions .= self::get_requeue_link($record);
         $actions .= self::get_copy_link($record);
         $actions .= self::get_delete_link($record);
-        return $actions;
+        return \html_writer::div($actions, '', ['style' => 'white-space: nowrap;']);
     }
 
     /**
