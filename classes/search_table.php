@@ -53,7 +53,6 @@ class search_table extends \table_sql {
         'search',
         'timestart',
         'duration',
-        'output',
         'actions',
     ];
 
@@ -188,10 +187,34 @@ class search_table extends \table_sql {
     public function col_name(stdClass $record): string {
         // Add a generic name fallback.
         if (empty($record->name)) {
-            return get_string('search') . ' ' . $record->id;
+            $name = get_string('search') . ' ' . $record->id;
+        } else {
+            $name = $record->name;
         }
 
-        return $record->name;
+        // Link the name to the report view, where available.
+        $reporturl = $this->get_report_url($record);
+        if ($reporturl !== null) {
+            $name = \html_writer::link($reporturl, $name);
+        }
+
+        // Combine with the output column (download link) to save horizontal space.
+        $output = $this->col_output($record);
+        if ($output !== '') {
+            $name .= \html_writer::div($output, 'mt-1');
+        }
+
+        return $name;
+    }
+
+    /**
+     * Returns the URL to the report view for a search result, if one is available.
+     *
+     * @param stdClass $record
+     * @return \moodle_url|null
+     */
+    protected function get_report_url(stdClass $record): ?\moodle_url {
+        return new \moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $record->id]);
     }
 
     /**
@@ -222,9 +245,6 @@ class search_table extends \table_sql {
         $html = \html_writer::start_tag('pre', ['class' => $class, 'style' => $style]);
         $html .= htmlspecialchars($record->search);
         $html .= \html_writer::end_tag('pre');
-
-        $reporturl = new \moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $record->id]);
-        $html = \html_writer::link($reporturl, $html);
 
         // Display the search options underneath the search pattern to save horizontal space.
         $html .= $this->col_options($record);
@@ -410,32 +430,7 @@ class search_table extends \table_sql {
      * @return string html used to display the manage column field.
      */
     public function format_output($record): string {
-        $output = '';
-        $output .= self::get_download_link($record);
-        $output .= self::get_report_link($record);
-        return $output;
-    }
-
-    /**
-     * Returns a link to the paginated report view for a search result.
-     *
-     * @param stdClass $record
-     * @return string html for report link, or an empty string.
-     */
-    protected function get_report_link($record): string {
-        $search = $this->get_persistent($record);
-        $file = $search->get_file();
-        $temppath = $search->get_temp_filepath();
-
-        if (!$file && (!$record->matches || !file_exists($temppath))) {
-            return '';
-        }
-
-        $url = new \moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $record->id]);
-        return \html_writer::div(
-            \html_writer::link($url, get_string('searchreportview', 'tool_advancedreplace')),
-            'mt-1'
-        );
+        return self::get_download_link($record);
     }
 
     /**

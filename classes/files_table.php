@@ -68,6 +68,16 @@ class files_table extends search_table {
     ];
 
     /**
+     * There is no dedicated report view for file searches, so the name column is left unlinked.
+     *
+     * @param \stdClass $record
+     * @return \moodle_url|null
+     */
+    protected function get_report_url(\stdClass $record): ?\moodle_url {
+        return null;
+    }
+
+    /**
      * Gets the where SQL.
      * @return string where SQL.
      */
