@@ -46,13 +46,13 @@ class search_table extends \table_sql {
     /** Columns to be displayed. */
     const COLUMNS = [
         'id',
+        'progress',
+        'matches',
         'name',
         'userid',
         'search',
         'timestart',
         'duration',
-        'progress',
-        'matches',
         'output',
         'actions',
     ];
