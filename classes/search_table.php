@@ -45,7 +45,6 @@ class search_table extends \table_sql {
 
     /** Columns to be displayed. */
     const COLUMNS = [
-        'id',
         'progress',
         'matches',
         'name',
@@ -95,6 +94,8 @@ class search_table extends \table_sql {
         $this->column_class('matches', 'text-right');
         $this->column_style('options', 'max-width', '400px');
         $this->define_headers($headers);
+        // Default to showing the most recently started searches first.
+        $this->sortable(true, 'timestart', SORT_DESC);
     }
 
     /**
