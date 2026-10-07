@@ -49,7 +49,6 @@ class search_table extends \table_sql {
         'name',
         'userid',
         'search',
-        'options',
         'timestart',
         'duration',
         'progress',
@@ -227,6 +226,9 @@ class search_table extends \table_sql {
         $reporturl = new \moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $record->id]);
         $html = \html_writer::link($reporturl, $html);
 
+        // Display the search options underneath the search pattern to save horizontal space.
+        $html .= $this->col_options($record);
+
         return $html;
     }
 
@@ -364,6 +366,15 @@ class search_table extends \table_sql {
             }
             if (!empty($record->$option)) {
                 $name = get_string('field_' . $option, 'tool_advancedreplace');
+                if ($option === 'tables') {
+                    // Display each table on its own line as an ordered list.
+                    $items = array_map('trim', explode(',', $record->$option));
+                    $listitems = implode('', array_map(static function($item) {
+                        return \html_writer::tag('li', s($item));
+                    }, $items));
+                    $options[] = $name . ':' . \html_writer::tag('ol', $listitems);
+                    continue;
+                }
                 // Add a space between comma seperated values.
                 $value = preg_replace('/,(?!\s)/', ', ', $record->$option);
                 $options[] = in_array($option, $bool) ? $name : $name . ': ' . $value;
@@ -376,7 +387,10 @@ class search_table extends \table_sql {
             $options[] = get_string('field_shards', 'tool_advancedreplace') . ': ' . implode(', ', $shardids);
         }
 
-        return format_text(implode(PHP_EOL, $options));
+        $content = format_text(implode(PHP_EOL, $options));
+
+        // Limit the display to roughly 10 lines, with a scrollbar for any overflow.
+        return \html_writer::div($content, '', ['style' => 'max-height: 15em; overflow-y: auto;']);
     }
 
     /**
