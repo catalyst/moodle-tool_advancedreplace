@@ -91,8 +91,8 @@ class search_table extends \table_sql {
         $this->column_class('progress', 'text-right');
         $this->column_class('matches', 'text-right');
         $this->define_headers($headers);
-        // Default to showing the most recently started searches first.
-        $this->sortable(true, 'timestart', SORT_DESC);
+        // Default to showing the most recently active searches first (created, requeued, or updated).
+        $this->sortable(true, 'timemodified', SORT_DESC);
     }
 
     /**
