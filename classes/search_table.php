@@ -248,7 +248,7 @@ class search_table extends \table_sql {
      */
     public function col_search(stdClass $record): string {
         $class = 'border p-1 d-inline';
-        $style = 'white-space: pre-wrap;';
+        $style = 'white-space: pre-wrap; word-break: break-all;';
         $html = \html_writer::start_tag('pre', ['class' => $class, 'style' => $style]);
         $html .= htmlspecialchars($record->search);
         $html .= \html_writer::end_tag('pre');
