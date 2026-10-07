@@ -67,7 +67,6 @@ class search_table extends \table_sql {
 
     /** Columns to be displayed, but not sorted. */
     const NOSORT_COLUMNS = [
-        'options',
         'matches',
         'actions',
     ];
@@ -91,7 +90,6 @@ class search_table extends \table_sql {
         $this->define_columns($columns);
         $this->column_class('progress', 'text-right');
         $this->column_class('matches', 'text-right');
-        $this->column_style('options', 'max-width', '400px');
         $this->define_headers($headers);
         // Default to showing the most recently started searches first.
         $this->sortable(true, 'timestart', SORT_DESC);
@@ -116,15 +114,24 @@ class search_table extends \table_sql {
     }
 
     /**
+     * Gets the list of fields to select.
+     *
+     * @return string fields SQL.
+     */
+    protected function get_fields_sql(): string {
+        $duration = 'CASE WHEN timeend - timestart > 0 THEN timeend - timestart ELSE 0 END AS duration';
+        return "*, $duration";
+    }
+
+    /**
      * Overrides felxible_table::setup() to do some extra setup.
      *
      * @return false|\type|void
      */
     public function setup() {
         $table = $this->dbclass::TABLE;
-        $duration = 'CASE WHEN timeend - timestart > 0 THEN timeend - timestart ELSE 0 END AS duration';
         $this->set_sql(
-            "*, $duration",
+            $this->get_fields_sql(),
             "{{$table}}",
             $this->get_where_sql(),
         );

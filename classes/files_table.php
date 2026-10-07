@@ -44,8 +44,7 @@ class files_table extends search_table {
         'matches',
         'name',
         'userid',
-        'pattern',
-        'options',
+        'search',
         'timestart',
         'duration',
         'actions',
@@ -73,6 +72,15 @@ class files_table extends search_table {
      */
     protected function get_report_url(\stdClass $record): ?\moodle_url {
         return null;
+    }
+
+    /**
+     * Aliases the pattern field as "search", so this table can share col_search() with the db search table.
+     *
+     * @return string fields SQL.
+     */
+    protected function get_fields_sql(): string {
+        return parent::get_fields_sql() . ', pattern AS search';
     }
 
     /**
