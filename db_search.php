@@ -104,7 +104,6 @@ if (isset($id)) {
     echo $OUTPUT->heading(get_string('searchpageheader', 'tool_advancedreplace'));
 
     $table = new \tool_advancedreplace\search_table('tool_advancedreplace');
-    $table->sortable(true, 'id', SORT_DESC);
     $table->define_baseurl($url);
     $table->make_columns();
     $table->out(40, false);

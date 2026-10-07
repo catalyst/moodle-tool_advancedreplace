@@ -72,6 +72,17 @@ if ($hassiteconfig) {
     $ADMIN->add(
         'advancereplacefolder',
         new admin_externalpage(
+            'tool_advancedreplace_files_report',
+            get_string('searchreportview', 'tool_advancedreplace'),
+            new moodle_url('/admin/tool/advancedreplace/files_report.php'),
+            'moodle/site:config',
+            true, // Hidden from the menu.
+        )
+    );
+
+    $ADMIN->add(
+        'advancereplacefolder',
+        new admin_externalpage(
             'tool_advancedreplace_file_replace',
             get_string('replacefilespagename', 'tool_advancedreplace'),
             new moodle_url('/admin/tool/advancedreplace/file_replace.php'),

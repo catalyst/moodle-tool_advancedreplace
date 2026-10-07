@@ -33,6 +33,7 @@ admin_externalpage_setup('tool_advancedreplace_files');
 $id = optional_param('id', null, PARAM_INT);
 $delete = optional_param('delete', null, PARAM_INT);
 $copy = optional_param('copy', null, PARAM_INT);
+$requeue = optional_param('requeue', null, PARAM_INT);
 
 if (isset($copy)) {
     $id = 0;
@@ -44,6 +45,20 @@ if (isset($delete)) {
     $files->delete();
     \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));
     redirect($url);
+}
+
+if (isset($requeue)) {
+    require_sesskey();
+    $files = new \tool_advancedreplace\files($requeue);
+    if (!$files->get('id')) {
+        throw new \moodle_exception('invalidrecordid');
+    }
+    if (!$files->is_finished()) {
+        throw new \moodle_exception('errornotfinished', 'tool_advancedreplace');
+    }
+    $files->reset_and_requeue();
+    \core\notification::success(get_string('searchrequeued', 'tool_advancedreplace'));
+    redirect(new moodle_url('/admin/tool/advancedreplace/files_report.php', ['id' => $requeue]));
 }
 
 if (isset($id)) {
@@ -88,7 +103,6 @@ if (isset($id)) {
     echo $OUTPUT->heading(get_string('filespageheader', 'tool_advancedreplace'));
 
     $table = new \tool_advancedreplace\files_table('tool_advancedreplace');
-    $table->sortable(true, 'id', SORT_DESC);
     $table->define_baseurl($url);
     $table->make_columns();
     $table->out(40, false);
