@@ -481,12 +481,17 @@ class search_table extends \table_sql {
         }
 
         $fileurl = $search->get_pluginfile_url($tempname);
-        $filename = $search->get_filename($tempname);
         $filesize = $file ? $file->get_filesize() : filesize($temppath);
         $filesize = display_size($filesize);
 
-        $download = \html_writer::link($fileurl, $filename);
-        return "$download ($filesize)";
+        return \html_writer::tag(
+            'small',
+            \html_writer::link(
+                $fileurl,
+                get_string('downloadcsv', 'tool_advancedreplace', $filesize),
+                ['class' => 'text-muted', 'style' => 'white-space: nowrap;']
+            )
+        );
     }
 
     /**
