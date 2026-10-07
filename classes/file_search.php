@@ -214,7 +214,7 @@ class file_search {
                 'fileid', 'courseid', 'shortname', 'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
                 'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
             ];
-            fputcsv($stream, $columnheaders);
+            fputcsv($stream, $columnheaders, ',', '"', '\\');
         }
 
         mtrace($logmessage);
@@ -345,7 +345,7 @@ class file_search {
                     $csv[self::CSV_MATCH + 2 * $group] = $matches[$group][$index][0];
                     $group++;
                 }
-                fputcsv($stream, $csv);
+                fputcsv($stream, $csv, ',', '"', '\\');
             }
         }
         return $matchcount;
