@@ -28,7 +28,7 @@ require_once($CFG->libdir . '/formslib.php');
  * @author    Jason den Dulk <jasondendulk@catalyst-au.net>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class date_time_filter_form extends \moodleform {
+class results_filter_form extends \moodleform {
     /**
      * Define the form.
      */
@@ -72,7 +72,14 @@ class date_time_filter_form extends \moodleform {
 
         $buttons = [];
         $buttons[] = &$mform->createElement('submit', 'submitbutton', get_string('filter'));
-        $buttons[] = &$mform->createElement('submit', 'clearfilter', get_string('clear'));
+        if (isset($this->_customdata['clearurl'])) {
+            $buttons[] = &$mform->createElement(
+                'static',
+                'clearfilter',
+                '',
+                \html_writer::link($this->_customdata['clearurl'], get_string('clear'), ['class' => 'btn btn-secondary'])
+            );
+        }
         $mform->addGroup($buttons, 'filterbuttons', '', ' ', false);
     }
 
@@ -87,7 +94,6 @@ class date_time_filter_form extends \moodleform {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
         if (
-            empty($data['clearfilter']) &&
             !empty($data['reportfilterfrom']) &&
             !empty($data['reportfilterto']) &&
             $data['reportfilterfrom'] > $data['reportfilterto']
