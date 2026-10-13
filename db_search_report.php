@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-use tool_advancedreplace\form\date_time_filter_form;
+use tool_advancedreplace\form\results_filter_form;
 
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
@@ -90,29 +90,17 @@ if ($page !== 0) {
 }
 if ($perpage !== 50) {
     $customdata['perpage'] = $perpage;
+    $url->param('perpage', $perpage);
 }
+// Clearing the filter is a plain link back to the unfiltered report.
+$customdata['clearurl'] = $url;
 
-$form = new date_time_filter_form($url, $customdata);
+$form = new results_filter_form($url, $customdata, 'get');
 
+// The form submits via GET, so apply the submitted filter directly to this request.
 if ($formdata = $form->get_data()) {
-    if (!isset($formdata->clearfilter)) {
-        $timefrom = $formdata->reportfilterfrom;
-        $timeto = $formdata->reportfilterto;
-
-        $url->param('timefrom', $timefrom);
-        $url->param('timeto', $timeto);
-    } else {
-        $url->remove_params(['timefrom', 'timeto']);
-    }
-
-    if (isset($formdata->page)) {
-        $url->param('page', $formdata->page);
-    }
-    if (isset($formdata->perpage)) {
-        $url->param('perpage', $formdata->perpage);
-    }
-
-    redirect($url);
+    $timefrom = $formdata->reportfilterfrom;
+    $timeto = $formdata->reportfilterto;
 }
 
 // Output the page header before any early-exit notifications.
