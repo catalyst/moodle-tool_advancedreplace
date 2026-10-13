@@ -328,6 +328,21 @@ class helper {
             $params['maxid'] = $maxid;
         }
 
+        // Restrict to the time modified range, where the course time modified is available.
+        // As with the report filter, rows without a time modified are not filtered out.
+        if (!empty($coursefield) || isset($supportedtablemappings[$table]) || $table == 'course') {
+            $timemodifiedfrom = $search->get('timemodifiedfrom');
+            $timemodifiedto = $search->get('timemodifiedto');
+            if (!empty($timemodifiedfrom)) {
+                $wheresql[] = "(COALESCE(c.timemodified, 0) = 0 OR c.timemodified >= :timemodifiedfrom)";
+                $params['timemodifiedfrom'] = $timemodifiedfrom;
+            }
+            if (!empty($timemodifiedto)) {
+                $wheresql[] = "(COALESCE(c.timemodified, 0) = 0 OR c.timemodified <= :timemodifiedto)";
+                $params['timemodifiedto'] = $timemodifiedto;
+            }
+        }
+
         // Build query.
         $wheresql = implode(' AND ', $wheresql);
         if (!empty($coursefield)) {

@@ -173,5 +173,27 @@ function xmldb_tool_advancedreplace_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024112100, 'tool', 'advancedreplace');
     }
 
+    if ($oldversion < 2025080706) {
+        // Define fields timemodifiedfrom and timemodifiedto to be added to tool_advancedreplace_search.
+        $table = new xmldb_table('tool_advancedreplace_search');
+
+        $field = new xmldb_field('timemodifiedfrom', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'summary');
+
+        // Conditionally launch add field timemodifiedfrom.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field('timemodifiedto', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timemodifiedfrom');
+
+        // Conditionally launch add field timemodifiedto.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Advancedreplace savepoint reached.
+        upgrade_plugin_savepoint(true, 2025080706, 'tool', 'advancedreplace');
+    }
+
     return true;
 }
