@@ -270,6 +270,7 @@ while (($row = fgetcsv($fp, 0, ',', '"', '\\')) !== false) {
         ) {
             continue;
         }
+        $row[$timemodifiedindex] = userdate($tmtimestamp, get_string('strftimedatetimemonthshort', 'tool_advancedreplace'));
     }
 
     if ($rownum >= $start && $rownum < $end) {
@@ -343,11 +344,11 @@ foreach ($headers as $i => $h) {
 $columnsmap = [
     'table'     => get_string('field_table', 'tool_advancedreplace'),
     'column'    => get_string('field_column', 'tool_advancedreplace'),
-    'courseid'  => get_string('field_course_id', 'tool_advancedreplace'),
+    'courseid'  => get_string('idnumbercourse'),
     'shortname' => get_string('shortnamecourse'),
     'id'        => get_string('field_id', 'tool_advancedreplace'),
     'match'     => get_string('field_search', 'tool_advancedreplace'),
-    'timemodified'     => get_string('field_timemodified', 'tool_advancedreplace'),
+    'timemodified'     => get_string('timemodified', 'reportbuilder'),
 ];
 
 // Build table header cells — the match column absorbs link.
