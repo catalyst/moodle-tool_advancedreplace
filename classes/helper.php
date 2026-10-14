@@ -465,7 +465,6 @@ class helper {
         $results = [];
         $regex = $search->get('regex');
         $summary = $search->get('summary');
-        $dtformat = get_string('strftimedatetimemonthshort', 'tool_advancedreplace');
 
         // If using a regex search make sure the database supports them.
         if ($regex && !$DB->sql_regex_supported()) {
@@ -539,6 +538,15 @@ class helper {
                     $linkstring = $linkfunction($record);
                 }
 
+                // Create an ISO 8601 date string for recording is the CSV.
+                if (!empty($record->timemodified)) {
+                    $dt = new \DateTime('@' . $record->timemodified); // Unix timestamp, created in UTC.
+                    $dt->setTimezone(\core_date::get_user_timezone_object()); // Switch to the user's timezone.
+                    $dtstr = $dt->format(DATE_ATOM); // ISO 8601 (e.g. 2026-10-14T13:45:07+11:00).
+                } else {
+                    $dtstr = '-';
+                }
+
                 if (!$regex) {
                     fputcsv($stream, [
                         $table,
@@ -549,7 +557,7 @@ class helper {
                         $record->{$column->name},
                         '',
                         $linkstring,
-                        !empty($record->timemodified) ? userdate($record->timemodified, $dtformat) : '-',
+                        $dtstr,
                     ], ',', '"', '\\');
                     $count++;
                 } else {
@@ -576,7 +584,7 @@ class helper {
                                 $match,
                                 '',
                                 $linkstring,
-                                !empty($record->timemodified) ? userdate($record->timemodified, $dtformat) : '-',
+                                $dtstr,
                             ], ',', '"', '\\');
                             $count++;
                         }
@@ -655,6 +663,9 @@ class helper {
             fputcsv(
                 $fp,
                 ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link', 'timemodified'],
+                ',',
+                '"',
+                '\\'
             );
         } else {
             fputcsv($fp, ['table', 'column'], ',', '"', '\\');
@@ -668,9 +679,6 @@ class helper {
         // Output the result for each table.
         $rowcount = 0;
         $matches = 0;
-        $update = new \stdClass();
-        $update->time = time();
-        $update->percent = 0;
 
         $tablec = 0;
         $columnc = 0;
