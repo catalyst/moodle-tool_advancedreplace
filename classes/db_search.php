@@ -37,6 +37,8 @@ class db_search extends search {
         'skiptables',
         'skipcolumns',
         'summary',
+        'timemodifiedfrom',
+        'timemodifiedto',
     ];
 
     /** How many seconds to wait before marking a search as stale. */
@@ -94,6 +96,14 @@ class db_search extends search {
             ],
             'summary' => [
                 'type' => PARAM_BOOL,
+                'default' => 0,
+            ],
+            'timemodifiedfrom' => [
+                'type' => PARAM_INT,
+                'default' => 0,
+            ],
+            'timemodifiedto' => [
+                'type' => PARAM_INT,
                 'default' => 0,
             ],
             'origin' => [
