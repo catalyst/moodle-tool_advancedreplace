@@ -296,6 +296,7 @@ class helper {
         $wheresql = [];
         $params = [];
 
+        // Special SQL fragments for specific tables.
         static $supportedtablemappings = [
             'course_sections' => ['t.id as id, section', ''],
             'book_chapters' => ['t.bookid as moduleid, t.id as id,', 'LEFT JOIN {book} t2 ON t.bookid = t2.id'],
@@ -327,27 +328,52 @@ class helper {
             $params['maxid'] = $maxid;
         }
 
+        // Restrict to the time modified range, where the course time modified is available.
+        // As with the report filter, rows without a time modified are not filtered out.
+        if (!empty($coursefield) || isset($supportedtablemappings[$table]) || $table == 'course') {
+            $timemodifiedfrom = $search->get('timemodifiedfrom');
+            $timemodifiedto = $search->get('timemodifiedto');
+            if (!empty($timemodifiedfrom)) {
+                $wheresql[] = "(COALESCE(c.timemodified, 0) = 0 OR c.timemodified >= :timemodifiedfrom)";
+                $params['timemodifiedfrom'] = $timemodifiedfrom;
+            }
+            if (!empty($timemodifiedto)) {
+                $wheresql[] = "(COALESCE(c.timemodified, 0) = 0 OR c.timemodified <= :timemodifiedto)";
+                $params['timemodifiedto'] = $timemodifiedto;
+            }
+        }
+
         // Build query.
         $wheresql = implode(' AND ', $wheresql);
         if (!empty($coursefield)) {
+            // Include course info based on a course ID reference.
             $sql = "SELECT $tablealias.id,
                            $tablealias.$columnname,
                            $tablealias.$coursefield as courseid,
-                           c.shortname as courseshortname
+                           c.shortname as courseshortname,
+                           c.timemodified as timemodified
                       FROM {" . $table . "} $tablealias
                  LEFT JOIN {course} c ON c.id = $tablealias.$coursefield
                      WHERE $wheresql";
         } else if (isset($supportedtablemappings[$table])) {
+            // Inclcde course info based on specially supplied SQL.
             $sql = "SELECT {$supportedtablemappings[$table][0]}
                            $tablealias.$columnname,
                            c.id as courseid,
-                           c.shortname as courseshortname
+                           c.shortname as courseshortname,
+                           c.timemodified as timemodified
                       FROM {" . $table . "} $tablealias
                  {$supportedtablemappings[$table][1]}
                  LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
         } else {
-            $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
+            if ($table == 'course') {
+                // Get time modified for course.
+                $sql = "SELECT id, $columnname, timemodified FROM {" . $table . "} $tablealias WHERE $wheresql";
+            } else {
+                // Time modified will be blank for all other tables.
+                $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
+            }
         }
 
         return [$sql, $params];
@@ -454,6 +480,15 @@ class helper {
                     $linkstring = $linkfunction($record);
                 }
 
+                // Create an ISO 8601 date string for recording is the CSV.
+                if (!empty($record->timemodified)) {
+                    $dt = new \DateTime('@' . $record->timemodified); // Unix timestamp, created in UTC.
+                    $dt->setTimezone(\core_date::get_user_timezone_object()); // Switch to the user's timezone.
+                    $dtstr = $dt->format(DATE_ATOM); // ISO 8601 (e.g. 2026-10-14T13:45:07+11:00).
+                } else {
+                    $dtstr = '-';
+                }
+
                 if (!$regex) {
                     fputcsv($stream, [
                         $table,
@@ -464,6 +499,7 @@ class helper {
                         $record->{$column->name},
                         '',
                         $linkstring,
+                        $dtstr,
                     ], ',', '"', '\\');
                     $count++;
                 } else {
@@ -487,6 +523,7 @@ class helper {
                                 $match,
                                 '',
                                 $linkstring,
+                                $dtstr,
                             ], ',', '"', '\\');
                             $count++;
                         }
@@ -562,7 +599,13 @@ class helper {
         $fp = fopen($output, 'w');
         // Show header.
         if (!$search->get('summary')) {
-            fputcsv($fp, ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link'], ',', '"', '\\');
+            fputcsv(
+                $fp,
+                ['table', 'column', 'courseid', 'shortname', 'id', 'match', 'replace', 'link', 'timemodified'],
+                ',',
+                '"',
+                '\\'
+            );
         } else {
             fputcsv($fp, ['table', 'column'], ',', '"', '\\');
         }
@@ -575,9 +618,6 @@ class helper {
         // Output the result for each table.
         $rowcount = 0;
         $matches = 0;
-        $update = new \stdClass();
-        $update->time = time();
-        $update->percent = 0;
 
         $tablec = 0;
         $columnc = 0;

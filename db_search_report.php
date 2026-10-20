@@ -22,6 +22,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use tool_advancedreplace\form\results_filter_form;
+
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/tablelib.php');
@@ -29,6 +31,8 @@ require_once($CFG->libdir . '/tablelib.php');
 $id   = required_param('id', PARAM_INT);
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 50, PARAM_INT);
+$timefrom = optional_param('timefrom', 0, PARAM_INT);
+$timeto = optional_param('timeto', 0, PARAM_INT);
 
 $url = new moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $id]);
 $PAGE->set_url($url);
@@ -72,6 +76,31 @@ if ($file) {
         $csvpath = $temppath;
         $cleanup = false;
     }
+}
+
+$customdata = ['id' => $id];
+if ($timefrom !== 0) {
+    $customdata['timefrom'] = $timefrom;
+}
+if ($timeto !== 0) {
+    $customdata['timeto'] = $timeto;
+}
+if ($page !== 0) {
+    $customdata['page'] = $page;
+}
+if ($perpage !== 50) {
+    $customdata['perpage'] = $perpage;
+    $url->param('perpage', $perpage);
+}
+// Clearing the filter is a plain link back to the unfiltered report.
+$customdata['clearurl'] = $url;
+
+$form = new results_filter_form($url, $customdata, 'get');
+
+// The form submits via GET, so apply the submitted filter directly to this request.
+if ($formdata = $form->get_data()) {
+    $timefrom = $formdata->reportfilterfrom;
+    $timeto = $formdata->reportfilterto;
 }
 
 // Output the page header before any early-exit notifications.
@@ -190,29 +219,77 @@ if ($headers === false) {
     throw new \moodle_exception('errorinvalidfile', 'tool_advancedreplace');
 }
 
+// Columns to hide entirely (rendered elsewhere or always empty).
+$hiddencols = ['replace', 'link'];
+
+// Determine which column indexes to skip or merge.
+$hiddenindexes = [];
+$linkindex = null;
+$matchindex = null;
+$courseidindex = null;
+$shortnameindex = null;
+$timemodifiedindex = null;
+foreach ($headers as $i => $h) {
+    if (in_array($h, $hiddencols)) {
+        $hiddenindexes[] = $i;
+    }
+    if ($h === 'link') {
+        $linkindex = $i;
+    }
+    if ($h === 'match') {
+        $matchindex = $i;
+    }
+    if ($h === 'courseid') {
+        $courseidindex = $i;
+    }
+    if ($h === 'shortname') {
+        $shortnameindex = $i;
+    }
+    if ($h === 'timemodified') {
+        $timemodifiedindex = $i;
+    }
+}
+
 // Count total data rows and collect the page's rows efficiently.
 // Use the stored match count to avoid scanning the entire file just for pagination.
-$totalrows = (int)$search->get('matches');
+$maxrows = (int)$search->get('matches');
 $pagerows  = [];
 $start     = $page * $perpage;
 $end       = $start + $perpage;
 $rownum    = 0;
 
 while (($row = fgetcsv($fp, 0, ',', '"', '\\')) !== false) {
+    $timemodified = $row[$timemodifiedindex];
+    if ($timemodified != '-') {
+        $tmtimestamp = strtotime($timemodified);
+
+        // Filter out any record that lies outside the time range.
+        if (
+            ($timefrom != 0 && $tmtimestamp < $timefrom) ||
+            ($timeto != 0 && $tmtimestamp > $timeto)
+        ) {
+            continue;
+        }
+        $row[$timemodifiedindex] = userdate($tmtimestamp, get_string('strftimedatetimemonthshort', 'tool_advancedreplace'));
+    }
+
     if ($rownum >= $start && $rownum < $end) {
         $pagerows[] = $row;
     }
     $rownum++;
     // Stop reading once we have collected the page rows and passed the end offset.
-    if ($rownum >= $end && $rownum <= $totalrows) {
+    if ($rownum >= $end) {
         break;
     }
 }
 fclose($fp);
+$totalrows = $rownum;
 
 if (!empty($cleanup) && file_exists($csvpath)) {
     @unlink($csvpath);
 }
+
+$form->display();
 
 // Output.
 
@@ -222,8 +299,16 @@ if ($totalrows === 0) {
     exit;
 }
 
+$url = clone $url;
+if ($timefrom !== 0) {
+    $url->param('timefrom', $timefrom);
+}
+if ($timeto !== 0) {
+    $url->param('timeto', $timeto);
+}
+
 // Pager.
-echo $OUTPUT->paging_bar($totalrows, $page, $perpage, $url);
+echo $OUTPUT->paging_bar($maxrows, $page, $perpage, $url);
 
 // Search term to highlight — use prematch for regex searches.
 $highlightneedle = $search->get('regex') ? $search->get('prematch') : $search->get('search');
@@ -259,10 +344,11 @@ foreach ($headers as $i => $h) {
 $columnsmap = [
     'table'     => get_string('field_table', 'tool_advancedreplace'),
     'column'    => get_string('field_column', 'tool_advancedreplace'),
-    'courseid'  => get_string('field_id', 'tool_advancedreplace') . ' (course)',
+    'courseid'  => get_string('idnumbercourse'),
     'shortname' => get_string('shortnamecourse'),
     'id'        => get_string('field_id', 'tool_advancedreplace'),
     'match'     => get_string('field_search', 'tool_advancedreplace'),
+    'timemodified'     => get_string('timemodified', 'reportbuilder'),
 ];
 
 // Build table header cells — the match column absorbs link.

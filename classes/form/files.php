@@ -121,6 +121,39 @@ class files extends \core\form\persistent {
         $mform->setDefault('shards', 1);
         $mform->addElement('static', 'shards_help', '', get_string('field_shards_help', self::PLUGIN));
 
+        $mform->addElement(
+            'date_time_selector',
+            'timemodifiedfrom',
+            get_string('reportfilterfrom', self::PLUGIN),
+            ['optional' => true]
+        );
+        $mform->addElement(
+            'date_time_selector',
+            'timemodifiedto',
+            get_string('reportfilterto', self::PLUGIN),
+            ['optional' => true]
+        );
+
         $this->add_action_buttons(true, get_string('search'));
+    }
+
+    /**
+     * Extra validation of the time filter.
+     *
+     * @param \stdClass $data Data to validate.
+     * @param array $files Array of files.
+     * @param array $errors Currently reported errors.
+     * @return array of additional errors.
+     */
+    protected function extra_validation($data, $files, array &$errors) {
+        $newerrors = [];
+        if (
+            !empty($data->timemodifiedfrom) &&
+            !empty($data->timemodifiedto) &&
+            $data->timemodifiedfrom > $data->timemodifiedto
+        ) {
+            $newerrors['timemodifiedto'] = get_string('reportfilterinvalidrange', self::PLUGIN);
+        }
+        return $newerrors;
     }
 }
