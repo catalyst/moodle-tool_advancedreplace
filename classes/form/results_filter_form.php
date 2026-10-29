@@ -84,12 +84,43 @@ class results_filter_form extends \moodleform {
     }
 
     /**
-     * Custom validate the form data.
+     * After definition hook.
+     */
+    protected function after_definition() {
+        parent::after_definition();
+
+        // The parent constructor adds this after definition().
+        $this->_form->removeElement('sesskey');
+        $this->_form->disable_form_change_checker();
+    }
+
+    /**
+     * Alters submitted data to be suitable for quickforms processing.
+     *
+     * @param $method
+     * @throws \coding_exception
+     */
+    public function _process_submission($method) { // phpcs:ignore PSR2.Methods.MethodDeclaration.Underscore
+        if ($method !== 'get') {
+            throw new \coding_exception('This search form must use GET.');
+        }
+
+        // Deliberately accept only GET data, with no files or sesskey check.
+        $submission = $_GET;
+        $marker = '_qf__' . $this->_formname;
+        if (($submission[$marker] ?? null) != 1) {
+            $submission = [];
+        }
+
+        $this->_form->updateSubmission($submission, []);
+    }
+
+    /**
+     * Extra validation.
      *
      * @param $data
      * @param $files
      * @return array
-     * @throws \coding_exception
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
