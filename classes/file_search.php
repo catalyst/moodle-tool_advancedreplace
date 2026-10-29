@@ -109,19 +109,16 @@ class file_search {
     */
     const CSV_REPLACE   = 12;
 
-    /**
-    * 10th column of csv output - the offset of the match within the file.
-    *
-    * @var int
-    */
-    const CSV_OFFSET    = 13;
 
-    /**
-    * 11th column of csv output - the text that was matched.
-    *
-    * @var int
-    */
-    const CSV_MATCH     = 14;
+    /** @var int Time modified of the course the file is associated with */
+    const CSV_FILETIMEMODIFIED = 13;
+
+    /** @var int The offset of the match within the file. */
+    const CSV_OFFSET    = 14;
+
+    /** @var int The text that was matched. */
+    const CSV_MATCH     = 15;
+
 
     /** @var int Chunk size for splitting. 10MB to make border cases rare. */
     const CHUNK_SIZE = 10 * 1024 * 1024;
@@ -181,6 +178,17 @@ class file_search {
         }
 
         [$whereclause, $params] = self::make_where_clause($criteria);
+        // Restrict to files modified within the time range, if set.
+        $timemodifiedfrom = $record->get('timemodifiedfrom');
+        $timemodifiedto = $record->get('timemodifiedto');
+        if (!empty($timemodifiedfrom)) {
+            $whereclause .= ' AND f.timemodified >= :timemodifiedfrom';
+            $params['timemodifiedfrom'] = $timemodifiedfrom;
+        }
+        if (!empty($timemodifiedto)) {
+            $whereclause .= ' AND f.timemodified <= :timemodifiedto';
+            $params['timemodifiedto'] = $timemodifiedto;
+        }
         // If we are running a shard, then restrict the range of id.
         if (!empty($startid) || !empty($endid)) {
             if (empty($finalshard)) {
@@ -212,7 +220,7 @@ class file_search {
             $stream = fopen($output, 'w');
             $columnheaders = [
                 'fileid', 'courseid', 'shortname', 'contextid', 'component', 'filearea', 'itemid', 'filepath', 'filename',
-                'mimetype', 'strategy', 'internal', 'replace', 'offset', 'match',
+                'mimetype', 'strategy', 'internal', 'replace', 'filetimemodified', 'offset', 'match',
             ];
             fputcsv($stream, $columnheaders, ',', '"', '\\');
         }
@@ -226,7 +234,7 @@ class file_search {
         $sql = "
             SELECT
                 f.id, f.component, f.filearea, f.contextid, f.itemid, f.filename, f.filepath, f.mimetype,
-                c.id AS courseid, c.shortname
+                c.id AS courseid, c.shortname, f.timemodified
             FROM {files} f
             JOIN {context} ctx ON ctx.id = f.contextid
             LEFT JOIN {course_modules} cm ON cm.id = ctx.instanceid AND ctx.contextlevel = 70
@@ -491,6 +499,14 @@ class file_search {
             }
         }
 
+        // Create an ISO 8601 date string for recording is the CSV.
+        if (!empty($filerecord->timemodified)) {
+            $dt = new \DateTime('@' . $filerecord->timemodified); // Unix timestamp, created in UTC.
+            $dt->setTimezone(\core_date::get_user_timezone_object()); // Switch to the user's timezone.
+            $dtstr = $dt->format(DATE_ATOM); // ISO 8601 (e.g. 2026-10-14T13:45:07+11:00).
+        } else {
+            $dtstr = '-';
+        }
         $csv = [
             self::CSV_FILEID    => $filerecord->id,
             self::CSV_COURSEID  => $filerecord->courseid,
@@ -505,6 +521,7 @@ class file_search {
             self::CSV_STRATEGY  => 'plain',
             self::CSV_INTERNAL  => '',
             self::CSV_REPLACE   => '',
+            self::CSV_FILETIMEMODIFIED => $dtstr,
         ];
         switch ($filerecord->mimetype) {
             case 'application/zip.h5p':

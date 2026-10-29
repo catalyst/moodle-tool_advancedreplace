@@ -42,6 +42,8 @@ class files extends search {
         'zipfilenames',
         'skipzipfilenames',
         'shards',
+        'timemodifiedfrom',
+        'timemodifiedto',
     ];
 
     /** How many seconds to wait before marking a search as stale. */
@@ -119,6 +121,14 @@ class files extends search {
                 'type' => PARAM_INT,
                 'default' => null,
                 'null' => NULL_ALLOWED,
+            ],
+            'timemodifiedfrom' => [
+                'type' => PARAM_INT,
+                'default' => 0,
+            ],
+            'timemodifiedto' => [
+                'type' => PARAM_INT,
+                'default' => 0,
             ],
             'origin' => [
                 'type' => PARAM_TEXT,

@@ -22,6 +22,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use tool_advancedreplace\form\results_filter_form;
+
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/tablelib.php');
@@ -29,6 +31,8 @@ require_once($CFG->libdir . '/tablelib.php');
 $id   = required_param('id', PARAM_INT);
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 50, PARAM_INT);
+$timefrom = optional_param('timefrom', 0, PARAM_INT);
+$timeto = optional_param('timeto', 0, PARAM_INT);
 
 $url = new moodle_url('/admin/tool/advancedreplace/files_report.php', ['id' => $id]);
 $PAGE->set_url($url);
@@ -72,6 +76,31 @@ if ($file) {
         $csvpath = $temppath;
         $cleanup = false;
     }
+}
+
+$customdata = ['id' => $id];
+if ($timefrom !== 0) {
+    $customdata['timefrom'] = $timefrom;
+}
+if ($timeto !== 0) {
+    $customdata['timeto'] = $timeto;
+}
+if ($page !== 0) {
+    $customdata['page'] = $page;
+}
+if ($perpage !== 50) {
+    $customdata['perpage'] = $perpage;
+    $url->param('perpage', $perpage);
+}
+// Clearing the filter is a plain link back to the unfiltered report.
+$customdata['clearurl'] = $url;
+
+$form = new results_filter_form($url, $customdata, 'get');
+
+// The form submits via GET, so apply the submitted filter directly to this request.
+if ($formdata = $form->get_data()) {
+    $timefrom = $formdata->reportfilterfrom;
+    $timeto = $formdata->reportfilterto;
 }
 
 // Output the page header before any early-exit notifications.
@@ -187,41 +216,6 @@ if ($headers === false) {
     throw new \moodle_exception('errorinvalidfile', 'tool_advancedreplace');
 }
 
-// Count total data rows and collect the page's rows efficiently.
-// Use the stored match count to avoid scanning the entire file just for pagination.
-$totalrows = (int)$search->get('matches');
-$pagerows  = [];
-$start     = $page * $perpage;
-$end       = $start + $perpage;
-$rownum    = 0;
-
-while (($row = fgetcsv($fp, 0, ',', '"', '\\')) !== false) {
-    if ($rownum >= $start && $rownum < $end) {
-        $pagerows[] = $row;
-    }
-    $rownum++;
-    // Stop reading once we have collected the page rows and passed the end offset.
-    if ($rownum >= $end && $rownum <= $totalrows) {
-        break;
-    }
-}
-fclose($fp);
-
-if (!empty($cleanup) && file_exists($csvpath)) {
-    @unlink($csvpath);
-}
-
-// Output.
-
-if ($totalrows === 0) {
-    echo $OUTPUT->notification(get_string('searchreportempty', 'tool_advancedreplace'), 'info');
-    echo $OUTPUT->footer();
-    exit;
-}
-
-// Pager.
-echo $OUTPUT->paging_bar($totalrows, $page, $perpage, $url);
-
 // Columns to hide entirely (rendered elsewhere or always empty).
 $hiddencols = ['replace'];
 
@@ -236,6 +230,7 @@ $fileareaindex = null;
 $itemidindex = null;
 $filepathindex = null;
 $filenameindex = null;
+$filetimemodifiedindex = null;
 foreach ($headers as $i => $h) {
     if (in_array($h, $hiddencols)) {
         $hiddenindexes[] = $i;
@@ -267,7 +262,75 @@ foreach ($headers as $i => $h) {
     if ($h === 'filename') {
         $filenameindex = $i;
     }
+    if ($h === 'filetimemodified') {
+        $filetimemodifiedindex = $i;
+    }
 }
+
+// Count total data rows and collect the page's rows efficiently.
+// Without a filter, use the stored match count to avoid scanning the entire file just for pagination.
+// With a filter, the whole file must be scanned to count the matching rows.
+$filtered  = ($timefrom != 0 || $timeto != 0) && $filetimemodifiedindex !== null;
+$totalrows = (int)$search->get('matches');
+$pagerows  = [];
+$start     = $page * $perpage;
+$end       = $start + $perpage;
+$rownum    = 0;
+
+while (($row = fgetcsv($fp, 0, ',', '"', '\\')) !== false) {
+    if ($filtered) {
+        $filetimemodified = $row[$filetimemodifiedindex] ?? '-';
+        if ($filetimemodified !== '-') {
+            $tmtimestamp = strtotime($filetimemodified);
+
+            // Filter out any record that lies outside the time range.
+            if (
+                ($timefrom != 0 && $tmtimestamp < $timefrom) ||
+                ($timeto != 0 && $tmtimestamp > $timeto)
+            ) {
+                continue;
+            }
+        }
+    }
+
+    if ($rownum >= $start && $rownum < $end) {
+        $pagerows[] = $row;
+    }
+    $rownum++;
+    // Stop reading once we have collected the page rows and passed the end offset.
+    if (!$filtered && $rownum >= $end && $rownum <= $totalrows) {
+        break;
+    }
+}
+fclose($fp);
+if ($filtered) {
+    $totalrows = $rownum;
+}
+
+if (!empty($cleanup) && file_exists($csvpath)) {
+    @unlink($csvpath);
+}
+
+$form->display();
+
+// Output.
+
+if ($totalrows === 0) {
+    echo $OUTPUT->notification(get_string('searchreportempty', 'tool_advancedreplace'), 'info');
+    echo $OUTPUT->footer();
+    exit;
+}
+
+$url = clone $url;
+if ($timefrom !== 0) {
+    $url->param('timefrom', $timefrom);
+}
+if ($timeto !== 0) {
+    $url->param('timeto', $timeto);
+}
+
+// Pager.
+echo $OUTPUT->paging_bar($totalrows, $page, $perpage, $url);
 
 // Column label map.
 $columnsmap = [
@@ -278,6 +341,7 @@ $columnsmap = [
     'filearea'  => get_string('field_filearea', 'tool_advancedreplace'),
     'filename'  => get_string('field_filename', 'tool_advancedreplace'),
     'match'     => get_string('field_search', 'tool_advancedreplace'),
+    'filetimemodified' => get_string('timemodified', 'reportbuilder'),
 ];
 
 // Build table header cells.
@@ -330,6 +394,12 @@ foreach ($pagerows as $row) {
             $cell = \html_writer::link($courseurl, htmlspecialchars($cell, ENT_QUOTES, 'UTF-8'));
         } else if ($header === 'filename' && !empty($cell) && !empty($linkedurl)) {
             $cell = \html_writer::link($linkedurl, htmlspecialchars($cell, ENT_QUOTES, 'UTF-8'), ['target' => '_blank']);
+        } else if ($header === 'filetimemodified') {
+            if ($cell !== '-') {
+                $timestamp = strtotime($cell);
+                $cell = userdate($timestamp, get_string('strftimedatetimemonthshort', 'tool_advancedreplace'));
+            }
+            $cell = htmlspecialchars($cell, ENT_QUOTES, 'UTF-8');
         } else {
             $cell = htmlspecialchars($cell, ENT_QUOTES, 'UTF-8');
         }

@@ -21,6 +21,7 @@
  * @copyright  2024 Catalyst IT Australia Pty Ltd
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+$string['cachedef_timemodifiedcolumns'] = 'Map of tables to the column holding the time a row was last modified';
 $string['cleancache'] = 'Some replacements may not take effect until after a cache purge, would you like to do that now?';
 $string['cleancachebutton'] = 'Purge all caches';
 $string['confirm_delete'] = 'Are you sure you want to delete the search? This will also delete the output.';
@@ -94,13 +95,12 @@ $string['field_table'] = 'Table';
 $string['field_tables'] = 'Tables';
 $string['field_tables_help'] = 'Tables and columns to search. Separate multiple tables/columns with a comma. If not specified, search all tables and columns. Example format: <code>user,assign_submission:submission</code>';
 $string['field_timeend'] = 'End';
-$string['field_timemodified'] = 'Last modified';
+$string['field_timemodified'] = 'Time modified';
+$string['field_timemodified_help'] = 'Time modified is the date and time something was last changed. When a match belongs to a course, this is the last time the course itself was changed, not the exact piece of content that matched. When a match does not belong to a course, it is the last time that particular item was changed, if Moodle keeps a record of it. Some items have no such record, so their time modified is left blank, and items with a blank time are never excluded when you filter by date.';
 $string['field_timestart'] = 'Start';
 $string['field_userid'] = 'User';
 $string['field_zipfilenames'] = 'Zip filenames';
-
 $string['field_zipfilenames_help'] = 'Regular expression to match subfiles within a zip.';
-
 $string['filespageheader'] = 'Search for text in Moodle files';
 $string['filespagename'] = 'Search in Files';
 $string['lastupdated'] = 'Last updated {$a} ago';
@@ -121,6 +121,9 @@ $string['replacefilespageheader'] = 'Replace text stored in files';
 $string['replacefilespagename'] = 'Replace strings in Files';
 $string['replacepageheader'] = 'Replace text stored in the DB';
 $string['replacepagename'] = 'Replace strings in the Database';
+$string['reportfilterfrom'] = 'Modified from';
+$string['reportfilterinvalidrange'] = 'The start of the modified date range must be before the end.';
+$string['reportfilterto'] = 'Modified to';
 $string['requeueoptions'] = 'Requeue search';
 $string['searchcopy'] = 'Search options have been copied from a previous search. This will be treated as a new search.';
 $string['searchdeleted'] = 'The selected search was deleted.';
@@ -132,9 +135,9 @@ $string['searchreportempty'] = 'No results found in this search.';
 $string['searchreportinprogress'] = 'This search is still in progress, no results are available yet.';
 $string['searchreportpending'] = 'This search has not started yet, no results are available.';
 $string['searchreportplaintext'] = 'Plain text';
-$string['searchrequeued'] = 'The search has been reset and requeued.';
 $string['searchreporttitle'] = 'Search results: {$a}';
 $string['searchreportview'] = 'View report';
+$string['searchrequeued'] = 'The search has been reset and requeued.';
 $string['selectfile'] = 'Select file';
 $string['settings:excludetables'] = 'Exclude tables';
 $string['settings:excludetables_help'] = 'Custom list of tables that will always be excluded from searches. Each table should be on a new line.';

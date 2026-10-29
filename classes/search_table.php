@@ -80,7 +80,11 @@ class search_table extends \table_sql {
         $headers = [];
         $columns = $this->get_columns();
         foreach ($columns as $column) {
-            $headers[] = get_string('field_' . $column, 'tool_advancedreplace');
+            if ($column == 'timemodified') {
+                $headers[] = get_string('timemodified', 'reportbuilder');
+            } else {
+                $headers[] = get_string('field_' . $column, 'tool_advancedreplace');
+            }
         }
 
         foreach (static::NOSORT_COLUMNS as $column) {
