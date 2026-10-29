@@ -348,7 +348,8 @@ $columnsmap = [
     'shortname' => get_string('shortnamecourse'),
     'id'        => get_string('field_id', 'tool_advancedreplace'),
     'match'     => get_string('field_search', 'tool_advancedreplace'),
-    'timemodified'     => get_string('timemodified', 'reportbuilder'),
+    'timemodified'     => get_string('field_timemodified', 'tool_advancedreplace') .
+        $OUTPUT->help_icon('field_timemodified', 'tool_advancedreplace'),
 ];
 
 // Build table header cells — the match column absorbs link.

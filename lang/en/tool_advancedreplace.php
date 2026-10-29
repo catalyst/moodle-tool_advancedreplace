@@ -21,6 +21,7 @@
  * @copyright  2024 Catalyst IT Australia Pty Ltd
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+$string['cachedef_timemodifiedcolumns'] = 'Map of tables to the column holding the time a row was last modified';
 $string['cleancache'] = 'Some replacements may not take effect until after a cache purge, would you like to do that now?';
 $string['cleancachebutton'] = 'Purge all caches';
 $string['confirm_delete'] = 'Are you sure you want to delete the search? This will also delete the output.';
@@ -94,6 +95,8 @@ $string['field_table'] = 'Table';
 $string['field_tables'] = 'Tables';
 $string['field_tables_help'] = 'Tables and columns to search. Separate multiple tables/columns with a comma. If not specified, search all tables and columns. Example format: <code>user,assign_submission:submission</code>';
 $string['field_timeend'] = 'End';
+$string['field_timemodified'] = 'Time modified';
+$string['field_timemodified_help'] = 'Time modified is the date and time something was last changed. When a match belongs to a course, this is the last time the course itself was changed, not the exact piece of content that matched. When a match does not belong to a course, it is the last time that particular item was changed, if Moodle keeps a record of it. Some items have no such record, so their time modified is left blank, and items with a blank time are never excluded when you filter by date.';
 $string['field_timestart'] = 'Start';
 $string['field_userid'] = 'User';
 $string['field_zipfilenames'] = 'Zip filenames';

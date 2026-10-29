@@ -103,6 +103,7 @@ class search extends \core\form\persistent {
             get_string('reportfilterfrom', 'tool_advancedreplace'),
             ['optional' => true]
         );
+        $mform->addHelpButton('timemodifiedfrom', 'field_timemodified', 'tool_advancedreplace');
         $mform->addElement(
             'date_time_selector',
             'timemodifiedto',

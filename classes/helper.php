@@ -366,14 +366,14 @@ class helper {
                  {$supportedtablemappings[$table][1]}
                  LEFT JOIN {course} c ON c.id = t2.course
                      WHERE $wheresql";
+        } else if ($timemodifiedcolumn = timemodified_columns::get_column($table)) {
+            // Get time modified for the row itself.
+            $sql = "SELECT id, $columnname, $timemodifiedcolumn AS timemodified
+                      FROM {" . $table . "} $tablealias
+                     WHERE $wheresql";
         } else {
-            if ($table == 'course') {
-                // Get time modified for course.
-                $sql = "SELECT id, $columnname, timemodified FROM {" . $table . "} $tablealias WHERE $wheresql";
-            } else {
-                // Time modified will be blank for all other tables.
-                $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
-            }
+            // Time modified will be blank for all other tables.
+            $sql = "SELECT id, $columnname FROM {" . $table . "} $tablealias WHERE $wheresql";
         }
 
         return [$sql, $params];
