@@ -102,6 +102,8 @@ class helper {
      * @return string
      */
     public static function get_regex_error(): string {
+        // The preg_last_error_msg() function is PHP 8.0+, so fall back to the error code on PHP 7.4.
+        // phpcs:ignore PHPCompatibility.FunctionUse.NewFunctions.preg_last_error_msgFound
         return function_exists('preg_last_error_msg') ? preg_last_error_msg() : (string) preg_last_error();
     }
 
