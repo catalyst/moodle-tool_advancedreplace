@@ -91,7 +91,8 @@ class replace_error_handler {
             if (!isset($this->table)) {
                 $this->init();
             }
-            $this->table->add_data($row);
+            // Values come from the uploaded CSV, and flexible_table outputs cell data as raw HTML.
+            $this->table->add_data(array_map('s', $row));
         } else {
             // Otherwise store data to print later.
             $this->rowdata[] = $row;

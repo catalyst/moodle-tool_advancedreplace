@@ -196,7 +196,7 @@ class search_table extends \table_sql {
         if (empty($record->name)) {
             $name = get_string('search') . ' ' . $record->id;
         } else {
-            $name = $record->name;
+            $name = format_string($record->name, true, ['context' => \context_system::instance()]);
         }
 
         // Link the name to the report view, where available.
