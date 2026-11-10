@@ -29,6 +29,7 @@ $url = new moodle_url('/admin/tool/advancedreplace/db_search.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_search');
+require_admin();
 
 $id = optional_param('id', null, PARAM_INT);
 $delete = optional_param('delete', null, PARAM_INT);

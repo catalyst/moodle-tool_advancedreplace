@@ -39,6 +39,7 @@ $url = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_replace');
+require_admin();
 
 $redirect = new moodle_url('/admin/tool/advancedreplace/db_search.php');
 
