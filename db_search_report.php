@@ -34,6 +34,7 @@ $url = new moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' 
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_search_report', '', [], $url->out(false));
+require_admin();
 
 $search = new \tool_advancedreplace\db_search($id);
 if (!$search->get('id')) {
@@ -44,7 +45,7 @@ $searchname = $search->get('name');
 if (empty($searchname)) {
     $searchname = get_string('search') . ' ' . $id;
 }
-$searchname .= ': ' . $search->get('search');
+$searchname .= ': ' . s($search->get('search'));
 
 // Manually build the full breadcrumb trail since admin_externalpage_setup
 // only marks the node active in settingsnav but doesn't populate navbar.

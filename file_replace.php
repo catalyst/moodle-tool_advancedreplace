@@ -38,6 +38,7 @@ $url = new moodle_url('/admin/tool/advancedreplace/file_replace.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_replace');
+require_admin();
 
 $redirect = new moodle_url('/admin/tool/advancedreplace/files.php');
 
