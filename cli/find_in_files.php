@@ -122,5 +122,6 @@ $data->origin = 'cli';
 // Run search.
 $files = new \tool_advancedreplace\files(0, $data);
 $files->create();
+$files->create_event('created')->trigger();
 file_search::files($files, $output);
 exit(0);
