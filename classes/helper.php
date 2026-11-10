@@ -46,6 +46,12 @@ class helper {
         'search_simpledb_index',
     ];
 
+    /** @var string Delimiter used when building PCRE patterns from user supplied expressions. */
+    const REGEX_DELIMITER = '%';
+
+    /** @var string PCRE modifiers used when matching database search results in PHP. */
+    const DB_REGEX_MODIFIERS = '';
+
     /**
      * @var int Maximum number of ids to scan per query when searching a table/column.
      *
@@ -59,6 +65,56 @@ class helper {
      * without needing to insert thousands of rows.
      **/
     public static int $searchbatchsize = 500;
+
+    /**
+     * Builds a PCRE pattern while preserving quoted literals containing the pattern delimiter.
+     *
+     * Any occurrence of the delimiter which is not already escaped is escaped, so the expression
+     * cannot terminate the pattern early or inject modifiers.
+     *
+     * @param string $expression the regular expression, without delimiters
+     * @param string $modifiers PCRE modifiers to append
+     * @return string the full PCRE pattern
+     */
+    public static function build_regex(string $expression, string $modifiers = ''): string {
+        $delimiter = self::REGEX_DELIMITER;
+
+        // Tokens: a \Q...\E quoted literal (ending at the first \E, or the end of the expression),
+        // an escape sequence, or any other single character.
+        $tokens = '/\\\\Q(.*?)(\\\\E|\z)|\\\\.?|./s';
+        $pattern = preg_replace_callback($tokens, function (array $m) use ($delimiter): string {
+            if (isset($m[1])) {
+                // Backslashes are literal inside a quote, so the delimiter can't be escaped there.
+                // Step out of the quote, escape it, and step back in.
+                return '\\Q' . str_replace($delimiter, '\\E\\' . $delimiter . '\\Q', $m[1]) . $m[2];
+            }
+            // Escape a bare delimiter; escape sequences (including an escaped delimiter) pass through unchanged.
+            return $m[0] === $delimiter ? '\\' . $delimiter : $m[0];
+        }, $expression);
+
+        return $delimiter . $pattern . $delimiter . $modifiers;
+    }
+
+    /**
+     * Checks whether a user supplied expression compiles as a regular expression.
+     *
+     * @param string $expression the regular expression, without delimiters
+     * @param string $modifiers PCRE modifiers to append
+     * @return bool
+     */
+    public static function is_valid_regex(string $expression, string $modifiers = ''): bool {
+        // Suppress the warning PHP emits for an invalid pattern; the false return value is what we check.
+        return @preg_match(self::build_regex($expression, $modifiers), '') !== false;
+    }
+
+    /**
+     * Describes the last PCRE error, for reporting matching failures such as backtrack limit exhaustion.
+     *
+     * @return string
+     */
+    public static function get_regex_error(): string {
+        return function_exists('preg_last_error_msg') ? preg_last_error_msg() : (string) preg_last_error();
+    }
 
     /**
      * Get columns to search for in a table.
@@ -470,11 +526,14 @@ class helper {
                     // Process records to show result for each match.
                     $data = $record->{$column->name};
 
-                    // Replace "/" with "\/", as it is used as delimiters.
-                    $pattern = str_replace('/', '\\/', $search->get('search'));
-
                     // Perform the regular expression search.
-                    preg_match_all("/" . $pattern . "/", $data, $matches);
+                    $pattern = self::build_regex($search->get('search'), self::DB_REGEX_MODIFIERS);
+                    if (preg_match_all($pattern, $data, $matches) === false) {
+                        mtrace(get_string('errorregexfailed', 'tool_advancedreplace', (object) [
+                            'item' => "$table.{$column->name} id {$record->id}",
+                            'error' => self::get_regex_error(),
+                        ]));
+                    }
 
                     if (!empty($matches[0])) {
                         foreach ($matches[0] as $match) {
@@ -776,7 +835,20 @@ class helper {
     ) {
         global $DB;
 
+        if (!$DB->get_manager()->table_exists($table)) {
+            $rowcounts['error']++;
+            $errorhandler->add([$rownum, $table, $columnname, $id,
+                get_string('errorreplacinginvalidtable', 'tool_advancedreplace')]);
+            return;
+        }
+
         $column = self::get_column_info($table, $columnname);
+        if ($column === null) {
+            $rowcounts['error']++;
+            $errorhandler->add([$rownum, $table, $columnname, $id,
+                get_string('errorreplacinginvalidcolumn', 'tool_advancedreplace')]);
+            return;
+        }
 
         // Enclose the column name by the proper quotes if it's a reserved word.
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
@@ -921,6 +993,10 @@ class helper {
                 if (empty($record[$replaceindex])) {
                     // Skip if 'replace' is empty.
                     $rowcounts['skipped']++;
+                } else if ($type == 'db' && !ctype_digit((string) $record[$idindex])) {
+                    $rowcounts['error']++;
+                    $errorhandler->add([$rownum, $record[$tableindex], $record[$columnindex], $record[$idindex],
+                        get_string('errorreplacinginvalidid', 'tool_advancedreplace')]);
                 } else if ($type == 'db') {
                     // Replace the string.
                     self::replace_text_in_a_record(
@@ -929,7 +1005,7 @@ class helper {
                         $record[$columnindex],
                         $record[$matchindex],
                         $record[$replaceindex],
-                        $record[$idindex],
+                        (int) $record[$idindex],
                         $rowcounts,
                         $errorhandler
                     );
