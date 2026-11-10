@@ -32,7 +32,7 @@ require_once($CFG->dirroot . '/lib/csvlib.class.php');
 global $CFG;
 $replace       = optional_param('delete', 0, PARAM_INT);
 $confirm      = optional_param('confirm', '', PARAM_BOOL);
-$draftid      = optional_param('draftid', '', PARAM_TEXT);
+$draftid      = optional_param('draftid', 0, PARAM_INT);
 
 $url = new moodle_url('/admin/tool/advancedreplace/file_replace.php');
 $PAGE->set_url($url);

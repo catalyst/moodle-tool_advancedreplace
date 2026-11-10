@@ -30,6 +30,12 @@ class db_search extends search {
     /** Event type prefix. */
     public const EVENT_TYPE = event\search_base::TYPE_DB;
 
+    /** Class of the adhoc task which runs the search. */
+    public const ADHOC_TASK = \tool_advancedreplace\task\search_db::class;
+
+    /** File area for output files. */
+    public const FILEAREA = 'search';
+
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [
         'name',
@@ -44,12 +50,6 @@ class db_search extends search {
 
     /** How many seconds to wait before marking a search as stale. */
     public const STALE = HOURSECS;
-
-    /** @var string File area for output files */
-    protected $filearea = 'search';
-
-    /** @var string Class for the adhoc task */
-    protected $adhoctask = \tool_advancedreplace\task\search_db::class;
 
     /** @var array includetables from config. */
     protected $includetables = null;
@@ -170,5 +170,18 @@ class db_search extends search {
         // For regex, use prematch as a rough estimate, otherwise use no minimum.
         $minsearch = empty($this->get('regex')) ? $this->get('search') : $this->get('prematch');
         return strlen($minsearch);
+    }
+
+    /**
+     * Validate the search, which must compile when it is a regular expression.
+     *
+     * @param string|null $value
+     * @return true|\lang_string
+     */
+    protected function validate_search($value) {
+        if ($this->raw_get('regex') && !helper::is_valid_regex((string) $value, helper::DB_REGEX_MODIFIERS)) {
+            return new \lang_string('errorinvalidregex', 'tool_advancedreplace');
+        }
+        return true;
     }
 }

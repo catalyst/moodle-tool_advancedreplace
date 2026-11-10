@@ -42,20 +42,37 @@ function tool_advancedreplace_pluginfile($course, $cm, $context, $filearea, $arg
     }
     require_admin();
 
-    $filename = $args[1];
-    if ($args[1] === 'temp') {
+    $fileareas = [\tool_advancedreplace\db_search::FILEAREA, \tool_advancedreplace\files::FILEAREA];
+    if (!in_array($filearea, $fileareas, true)) {
+        return false;
+    }
+
+    // Urls are either /itemid/filename or /itemid/temp/filename (see search::get_pluginfile_url()).
+    $itemid = (int) array_shift($args);
+    $istemp = count($args) === 2 && $args[0] === \tool_advancedreplace\search::TEMP_PATH;
+    if (!$itemid || (count($args) !== 1 && !$istemp)) {
+        return false;
+    }
+    $sendname = clean_param(end($args), PARAM_FILE);
+    if ($sendname === '') {
+        return false;
+    }
+
+    $filename = $sendname;
+    if ($istemp) {
         // If we have a temp file, check if the finished file exists.
-        $filename = str_replace('-temp.csv', '.csv', $args[2]);
+        $ext = \tool_advancedreplace\search::OUTPUT_EXTENSION;
+        $filename = str_replace(\tool_advancedreplace\search::TEMP_SUFFIX . $ext, $ext, $sendname);
     }
 
     $fs = get_file_storage();
-    $file = $fs->get_file($context->id, 'tool_advancedreplace', $filearea, $args[0], '/', $filename);
+    $file = $fs->get_file($context->id, 'tool_advancedreplace', $filearea, $itemid, '/', $filename);
     if (!$file) {
         // Check if there's an in progress version.
-        $tempfile = "$CFG->tempdir/tool_advancedreplace/$filearea-$args[0]";
+        $tempfile = "$CFG->tempdir/tool_advancedreplace/$filearea-$itemid";
         if (file_exists($tempfile)) {
             // Send temp file without caching.
-            send_file($tempfile, $args[2], 0, 0, false, $forcedownload, '', false, $options);
+            send_file($tempfile, $sendname, 0, 0, false, $forcedownload, '', false, $options);
             return true;
         }
 

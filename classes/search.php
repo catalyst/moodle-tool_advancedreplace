@@ -30,14 +30,32 @@ abstract class search extends \core\persistent {
     /** Event type prefix, used to resolve the event classes (see event\search_base::TYPE_*). */
     public const EVENT_TYPE = '';
 
+    /** Path segment used in pluginfile urls for in-progress (temp) output. */
+    public const TEMP_PATH = 'temp';
+
+    /** Suffix appended to the output filename for in-progress (temp) output. */
+    public const TEMP_SUFFIX = '-temp';
+
+    /** File extension of the search output. */
+    public const OUTPUT_EXTENSION = '.csv';
+
+    /** Default number of rows shown per page on the report pages. */
+    public const REPORT_DEFAULT_PERPAGE = 50;
+
+    /** Minimum number of rows shown per page on the report pages. */
+    public const REPORT_MIN_PERPAGE = 1;
+
+    /** Maximum number of rows shown per page on the report pages, to bound memory use. */
+    public const REPORT_MAX_PERPAGE = 500;
+
     /** How many seconds to wait before marking a search as stale. */
     public const STALE = MINSECS * 5;
 
-    /** @var string File area for output files */
-    protected $filearea = '';
+    /** File area for output files; set by each subclass. */
+    public const FILEAREA = '';
 
-    /** @var string Class for the adhoc task */
-    protected $adhoctask = '';
+    /** Class of the adhoc task which runs the search; set by each subclass. */
+    public const ADHOC_TASK = '';
 
     /**
      * @var \stdClass tracking of current status */
@@ -69,6 +87,16 @@ abstract class search extends \core\persistent {
                 $shard->delete();
             }
         }
+    }
+
+    /**
+     * Clamps a requested report page size to the allowed range.
+     *
+     * @param int $perpage requested page size
+     * @return int page size within REPORT_MIN_PERPAGE and REPORT_MAX_PERPAGE
+     */
+    public static function clamp_report_perpage(int $perpage): int {
+        return max(self::REPORT_MIN_PERPAGE, min($perpage, self::REPORT_MAX_PERPAGE));
     }
 
     /**
@@ -119,7 +147,8 @@ abstract class search extends \core\persistent {
      * @return bool true if the task was queued
      */
     public function queue_task(int $startid = 0, int $endid = 0, bool $finalshard = false): bool {
-        $adhoctask = new $this->adhoctask();
+        $class = static::ADHOC_TASK;
+        $adhoctask = new $class();
         $customdata = [
             'searchid' => $this->get('id'),
         ];
@@ -273,7 +302,7 @@ abstract class search extends \core\persistent {
      * @return string filename of temporary output
      */
     public function get_temp_filename(): string {
-        return $this->filearea . '-' . $this->get('id');
+        return static::FILEAREA . '-' . $this->get('id');
     }
 
     /**
@@ -291,11 +320,11 @@ abstract class search extends \core\persistent {
      * @return string pluginfile url
      */
     public function get_pluginfile_url(bool $temp = false): string {
-        $pathname = $temp ? '/temp/' : '/';
+        $pathname = $temp ? '/' . self::TEMP_PATH . '/' : '/';
         return \moodle_url::make_pluginfile_url(
             \context_system::instance()->id,
             'tool_advancedreplace',
-            $this->filearea,
+            static::FILEAREA,
             $this->get('id'),
             $pathname,
             $this->get_filename($temp)
@@ -316,7 +345,7 @@ abstract class search extends \core\persistent {
         $fileinfo = [
             'contextid' => \context_system::instance()->id,
             'component' => 'tool_advancedreplace',
-            'filearea'  => $this->filearea,
+            'filearea'  => static::FILEAREA,
             'itemid'    => $this->get('id'),
             'filepath'  => '/',
             'filename'  => $this->get_filename(),
@@ -333,7 +362,7 @@ abstract class search extends \core\persistent {
         return $fs->get_file(
             \context_system::instance()->id,
             'tool_advancedreplace',
-            $this->filearea,
+            static::FILEAREA,
             $this->get('id'),
             '/',
             $this->get_filename()
@@ -355,9 +384,9 @@ abstract class search extends \core\persistent {
             $filename .= '-' . $this->get('shardnum') . '-of-' . $this->get('shards');
         }
         if ($temp) {
-            $filename .= '-temp';
+            $filename .= self::TEMP_SUFFIX;
         }
-        return $filename . '.csv';
+        return $filename . self::OUTPUT_EXTENSION;
     }
 
     /**
