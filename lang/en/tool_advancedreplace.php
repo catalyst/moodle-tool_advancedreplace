@@ -110,9 +110,7 @@ $string['field_timemodified'] = 'Last modified';
 $string['field_timestart'] = 'Start';
 $string['field_userid'] = 'User';
 $string['field_zipfilenames'] = 'Zip filenames';
-
 $string['field_zipfilenames_help'] = 'Regular expression to match subfiles within a zip.';
-
 $string['filespageheader'] = 'Search for text in Moodle files';
 $string['filespagename'] = 'Search in Files';
 $string['lastupdated'] = 'Last updated {$a} ago';
@@ -144,9 +142,9 @@ $string['searchreportempty'] = 'No results found in this search.';
 $string['searchreportinprogress'] = 'This search is still in progress, no results are available yet.';
 $string['searchreportpending'] = 'This search has not started yet, no results are available.';
 $string['searchreportplaintext'] = 'Plain text';
-$string['searchrequeued'] = 'The search has been reset and requeued.';
 $string['searchreporttitle'] = 'Search results: {$a}';
 $string['searchreportview'] = 'View report';
+$string['searchrequeued'] = 'The search has been reset and requeued.';
 $string['selectfile'] = 'Select file';
 $string['settings:excludetables'] = 'Exclude tables';
 $string['settings:excludetables_help'] = 'Custom list of tables that will always be excluded from searches. Each table should be on a new line.';
