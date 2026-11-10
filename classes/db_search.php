@@ -27,6 +27,9 @@ class db_search extends search {
     /** The name of the database table. */
     public const TABLE = 'tool_advancedreplace_search';
 
+    /** Event type prefix. */
+    public const EVENT_TYPE = event\search_base::TYPE_DB;
+
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [
         'name',

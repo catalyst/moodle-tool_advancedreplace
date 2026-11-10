@@ -911,52 +911,83 @@ class helper {
             'replacematch' => 0,
         ];
 
-        // Start at 1 since we've already read the header.
-        $rownum = 1;
-        while ($record = $csvimport->next()) {
-            $rownum++;
-            if (empty($record[$replaceindex])) {
-                // Skip if 'replace' is empty.
-                $rowcounts['skipped']++;
-            } else if ($type == 'db') {
-                // Replace the string.
-                self::replace_text_in_a_record(
-                    $rownum,
-                    $record[$tableindex],
-                    $record[$columnindex],
-                    $record[$matchindex],
-                    $record[$replaceindex],
-                    $record[$idindex],
-                    $rowcounts,
-                    $errorhandler
-                );
-            } else if ($type == 'files') {
-                $filerecord = [
-                    'contextid' => $record[$contextidindex],
-                    'component' => $record[$componentindex],
-                    'filearea' => $record[$fileareaindex],
-                    'itemid' => $record[$itemidindex],
-                    'filepath' => $record[$filepathindex],
-                    'filename' => $record[$filenameindex],
-                    'mimetype' => $record[$mimeindex],
-                ];
+        $replacements = [];
+        $completed = false;
+        try {
+            // Start at 1 since we've already read the header.
+            $rownum = 1;
+            while ($record = $csvimport->next()) {
+                $rownum++;
+                if (empty($record[$replaceindex])) {
+                    // Skip if 'replace' is empty.
+                    $rowcounts['skipped']++;
+                } else if ($type == 'db') {
+                    // Replace the string.
+                    self::replace_text_in_a_record(
+                        $rownum,
+                        $record[$tableindex],
+                        $record[$columnindex],
+                        $record[$matchindex],
+                        $record[$replaceindex],
+                        $record[$idindex],
+                        $rowcounts,
+                        $errorhandler
+                    );
+                    $replacements[] = [
+                        'match' => $record[$matchindex],
+                        'replace' => $record[$replaceindex],
+                        'table' => $record[$tableindex],
+                        'column' => $record[$columnindex],
+                    ];
+                } else if ($type == 'files') {
+                    $filerecord = [
+                        'contextid' => $record[$contextidindex],
+                        'component' => $record[$componentindex],
+                        'filearea' => $record[$fileareaindex],
+                        'itemid' => $record[$itemidindex],
+                        'filepath' => $record[$filepathindex],
+                        'filename' => $record[$filenameindex],
+                        'mimetype' => $record[$mimeindex],
+                    ];
 
-                self::replace_text_in_file(
-                    $rownum,
-                    $filerecord,
-                    $record[$matchindex],
-                    $record[$replaceindex],
-                    $record[$internalindex],
-                    $rowcounts,
-                    $errorhandler
+                    self::replace_text_in_file(
+                        $rownum,
+                        $filerecord,
+                        $record[$matchindex],
+                        $record[$replaceindex],
+                        $record[$internalindex],
+                        $rowcounts,
+                        $errorhandler
+                    );
+                    $replacements[] = [
+                        'match' => $record[$matchindex],
+                        'replace' => $record[$replaceindex],
+                        'filepath' => $record[$filepathindex],
+                        'filename' => $record[$filenameindex],
+                    ];
+                }
+                // Update the progress bar.
+                $progress->update_full(
+                    100 * $rownum / $contentcount,
+                    $rowcounts['success'] . " Replaced, " . $rowcounts['skipped'] . " Skipped, "
+                        . $rowcounts['replacematch'] . " Already replaced, " . $rowcounts['error'] . " Errors."
                 );
             }
-            // Update the progress bar.
-            $progress->update_full(
-                100 * $rownum / $contentcount,
-                $rowcounts['success'] . " Replaced, " . $rowcounts['skipped'] . " Skipped, "
-                    . $rowcounts['replacematch'] . " Already replaced, " . $rowcounts['error'] . " Errors."
-            );
+            $completed = true;
+        } finally {
+            // Record the outcome in the logs, even if processing was interrupted part way through.
+            \tool_advancedreplace\event\replace_executed::create([
+                'other' => [
+                    'type' => $type,
+                    'rows' => $rownum - 1,
+                    'success' => $rowcounts['success'],
+                    'skipped' => $rowcounts['skipped'],
+                    'replacematch' => $rowcounts['replacematch'],
+                    'error' => $rowcounts['error'],
+                    'completed' => $completed,
+                    'replacements' => $replacements,
+                ],
+            ])->trigger();
         }
         $csvimport->cleanup();
         $csvimport->close();

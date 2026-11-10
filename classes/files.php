@@ -27,6 +27,9 @@ class files extends search {
     /** The name of the database table. */
     public const TABLE = 'tool_advancedreplace_files';
 
+    /** Event type prefix. */
+    public const EVENT_TYPE = event\search_base::TYPE_FILES;
+
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [
         'name',

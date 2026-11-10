@@ -27,6 +27,9 @@ abstract class search extends \core\persistent {
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [];
 
+    /** Event type prefix, used to resolve the event classes (see event\search_base::TYPE_*). */
+    public const EVENT_TYPE = '';
+
     /** How many seconds to wait before marking a search as stale. */
     public const STALE = MINSECS * 5;
 
@@ -66,6 +69,22 @@ abstract class search extends \core\persistent {
                 $shard->delete();
             }
         }
+    }
+
+    /**
+     * Creates an event for this search, without triggering it.
+     *
+     * For deletions, create the event before deleting the record and trigger it afterwards.
+     *
+     * @param string $action one of 'created', 'deleted', 'requeued'
+     * @return \tool_advancedreplace\event\search_base
+     */
+    public function create_event(string $action): event\search_base {
+        if (!in_array($action, ['created', 'deleted', 'requeued'], true)) {
+            throw new \coding_exception('Invalid search event action: ' . $action);
+        }
+        $class = '\\tool_advancedreplace\\event\\' . static::EVENT_TYPE . '_search_' . $action;
+        return $class::create_from_search($this);
     }
 
     /**
