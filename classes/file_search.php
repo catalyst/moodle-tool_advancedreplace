@@ -123,6 +123,9 @@ class file_search {
     */
     const CSV_MATCH     = 14;
 
+    /** @var string PCRE modifiers used for file content and zip filename patterns (case insensitive). */
+    const REGEX_MODIFIERS = 'i';
+
     /** @var int Chunk size for splitting. 10MB to make border cases rare. */
     const CHUNK_SIZE = 10 * 1024 * 1024;
 
@@ -133,7 +136,7 @@ class file_search {
      */
     public static function get_criteria(files $record): object {
         return (object) [
-            'pattern' => '%' . trim($record->get('pattern')) . '%i',
+            'pattern' => helper::build_regex(trim($record->get('pattern')), self::REGEX_MODIFIERS),
             'components' => trim($record->get('components')),
             'skipcomponents' => trim($record->get('skipcomponents')),
             'mimetypes' => trim($record->get('mimetypes')),
@@ -334,7 +337,15 @@ class file_search {
      */
     public static function grep_content($csv, $filecontents, $criteria, $stream): int {
         $matchcount = 0;
-        if (preg_match_all($criteria->pattern, $filecontents, $matches, PREG_OFFSET_CAPTURE)) {
+        $result = preg_match_all($criteria->pattern, $filecontents, $matches, PREG_OFFSET_CAPTURE);
+        if ($result === false) {
+            // E.g. backtrack limit exhausted by a pathological pattern; report it rather than failing silently.
+            mtrace(get_string('errorregexfailed', 'tool_advancedreplace', (object) [
+                'item' => 'file id ' . $csv[self::CSV_FILEID],
+                'error' => helper::get_regex_error(),
+            ]));
+        }
+        if ($result) {
             foreach ($matches[0] as $index => $match) {
                 $matchcount++;
                 $group = 0;
@@ -419,12 +430,12 @@ class file_search {
 
         $zip = new \ZipArchive();
         if (!empty($criteria->zipfilenames)) {
-            $namepattern = '%' . $criteria->zipfilenames . '%i';
+            $namepattern = helper::build_regex($criteria->zipfilenames, self::REGEX_MODIFIERS);
         } else {
             $namepattern = '';
         }
         if (!empty($criteria->skipzipfilenames)) {
-            $skipnamepattern = '%' . $criteria->skipzipfilenames . '%i';
+            $skipnamepattern = helper::build_regex($criteria->skipzipfilenames, self::REGEX_MODIFIERS);
         } else {
             $skipnamepattern = '';
         }

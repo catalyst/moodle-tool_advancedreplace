@@ -29,6 +29,7 @@ $url = new moodle_url('/admin/tool/advancedreplace/db_search.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_search');
+require_admin();
 
 $id = optional_param('id', null, PARAM_INT);
 $delete = optional_param('delete', null, PARAM_INT);
@@ -42,7 +43,9 @@ if (isset($copy)) {
 if (isset($delete)) {
     require_sesskey();
     $search = new \tool_advancedreplace\db_search($delete);
+    $event = $search->create_event('deleted');
     $search->delete();
+    $event->trigger();
     \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));
     redirect($url);
 }
@@ -57,6 +60,7 @@ if (isset($requeue)) {
         throw new \moodle_exception('errornotfinished', 'tool_advancedreplace');
     }
     $search->reset_and_requeue();
+    $search->create_event('requeued')->trigger();
     \core\notification::success(get_string('searchrequeued', 'tool_advancedreplace'));
     redirect(new moodle_url('/admin/tool/advancedreplace/db_search_report.php', ['id' => $requeue]));
 }
@@ -76,6 +80,7 @@ if (isset($id)) {
         if (empty($data->id)) {
             $search = new \tool_advancedreplace\db_search(0, $data);
             $search->create();
+            $search->create_event('created')->trigger();
             $search->queue_task();
 
             \core\notification::success(get_string('searchqueued', 'tool_advancedreplace'));

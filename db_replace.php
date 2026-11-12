@@ -32,13 +32,14 @@ require_once($CFG->dirroot . '/lib/csvlib.class.php');
 global $CFG;
 $replace       = optional_param('delete', 0, PARAM_INT);
 $confirm      = optional_param('confirm', '', PARAM_BOOL);
-$draftid      = optional_param('draftid', '', PARAM_TEXT);
+$draftid      = optional_param('draftid', 0, PARAM_INT);
 $cleancache   = optional_param('cleancache', 0, PARAM_BOOL);
 
 $url = new moodle_url('/admin/tool/advancedreplace/db_replace.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_replace');
+require_admin();
 
 $redirect = new moodle_url('/admin/tool/advancedreplace/db_search.php');
 

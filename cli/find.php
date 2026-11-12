@@ -116,5 +116,6 @@ $data->origin = 'cli';
 // Run search.
 $search = new \tool_advancedreplace\db_search(0, $data);
 $search->create();
+$search->create_event('created')->trigger();
 helper::search_db($search, $output);
 exit(0);

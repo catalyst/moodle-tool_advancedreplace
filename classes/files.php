@@ -27,6 +27,15 @@ class files extends search {
     /** The name of the database table. */
     public const TABLE = 'tool_advancedreplace_files';
 
+    /** Event type prefix. */
+    public const EVENT_TYPE = event\search_base::TYPE_FILES;
+
+    /** Class of the adhoc task which runs the search. */
+    public const ADHOC_TASK = \tool_advancedreplace\task\files::class;
+
+    /** File area for output files. */
+    public const FILEAREA = 'files';
+
     /** Fields to copy when copying a record. */
     public const COPY_COLUMNS = [
         'name',
@@ -46,12 +55,6 @@ class files extends search {
 
     /** How many seconds to wait before marking a search as stale. */
     public const STALE = MINSECS;
-
-    /** @var string File area for output files */
-    protected $filearea = 'files';
-
-    /** @var string Class for the adhoc task */
-    protected $adhoctask = \tool_advancedreplace\task\files::class;
 
     /**
      * Return the definition of the properties of this model.
@@ -140,5 +143,53 @@ class files extends search {
                 'default' => 0,
             ],
         ];
+    }
+
+    /**
+     * Validates a regular expression field.
+     *
+     * @param string|null $value
+     * @param bool $required whether an empty value is an error
+     * @return true|\lang_string
+     */
+    protected function validate_regex_field(?string $value, bool $required) {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return $required ? new \lang_string('errorinvalidregex', 'tool_advancedreplace') : true;
+        }
+        if (!helper::is_valid_regex($value, file_search::REGEX_MODIFIERS)) {
+            return new \lang_string('errorinvalidregex', 'tool_advancedreplace');
+        }
+        return true;
+    }
+
+    /**
+     * Validate the search pattern.
+     *
+     * @param string|null $value
+     * @return true|\lang_string
+     */
+    protected function validate_pattern($value) {
+        return $this->validate_regex_field($value, true);
+    }
+
+    /**
+     * Validate the zip filenames pattern.
+     *
+     * @param string|null $value
+     * @return true|\lang_string
+     */
+    protected function validate_zipfilenames($value) {
+        return $this->validate_regex_field($value, false);
+    }
+
+    /**
+     * Validate the skip zip filenames pattern.
+     *
+     * @param string|null $value
+     * @return true|\lang_string
+     */
+    protected function validate_skipzipfilenames($value) {
+        return $this->validate_regex_field($value, false);
     }
 }

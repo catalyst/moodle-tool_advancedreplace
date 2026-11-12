@@ -46,6 +46,12 @@ class helper {
         'search_simpledb_index',
     ];
 
+    /** @var string Delimiter used when building PCRE patterns from user supplied expressions. */
+    const REGEX_DELIMITER = '%';
+
+    /** @var string PCRE modifiers used when matching database search results in PHP. */
+    const DB_REGEX_MODIFIERS = '';
+
     /**
      * @var int Maximum number of ids to scan per query when searching a table/column.
      *
@@ -59,6 +65,47 @@ class helper {
      * without needing to insert thousands of rows.
      **/
     public static int $searchbatchsize = 500;
+
+    /**
+     * Builds a PCRE pattern from a user supplied expression.
+     *
+     * Any occurrence of the delimiter which is not already escaped is escaped, so the expression
+     * cannot terminate the pattern early or inject modifiers.
+     *
+     * @param string $expression the regular expression, without delimiters
+     * @param string $modifiers PCRE modifiers to append
+     * @return string the full PCRE pattern
+     */
+    public static function build_regex(string $expression, string $modifiers = ''): string {
+        $delimiter = self::REGEX_DELIMITER;
+        // Match the delimiter when preceded by an even number (including zero) of backslashes.
+        $unescaped = '/(?<!\\\\)((?:\\\\\\\\)*)' . preg_quote($delimiter, '/') . '/';
+        $escaped = preg_replace($unescaped, '$1\\\\' . $delimiter, $expression);
+        return $delimiter . $escaped . $delimiter . $modifiers;
+    }
+
+    /**
+     * Checks whether a user supplied expression compiles as a regular expression.
+     *
+     * @param string $expression the regular expression, without delimiters
+     * @param string $modifiers PCRE modifiers to append
+     * @return bool
+     */
+    public static function is_valid_regex(string $expression, string $modifiers = ''): bool {
+        // Suppress the warning PHP emits for an invalid pattern; the false return value is what we check.
+        return @preg_match(self::build_regex($expression, $modifiers), '') !== false;
+    }
+
+    /**
+     * Describes the last PCRE error, for reporting matching failures such as backtrack limit exhaustion.
+     *
+     * @return string
+     */
+    public static function get_regex_error(): string {
+        // The preg_last_error_msg() function is PHP 8.0+, so fall back to the error code on PHP 7.4.
+        // phpcs:ignore PHPCompatibility.FunctionUse.NewFunctions.preg_last_error_msgFound
+        return function_exists('preg_last_error_msg') ? preg_last_error_msg() : (string) preg_last_error();
+    }
 
     /**
      * Get columns to search for in a table.
@@ -470,11 +517,14 @@ class helper {
                     // Process records to show result for each match.
                     $data = $record->{$column->name};
 
-                    // Replace "/" with "\/", as it is used as delimiters.
-                    $pattern = str_replace('/', '\\/', $search->get('search'));
-
                     // Perform the regular expression search.
-                    preg_match_all("/" . $pattern . "/", $data, $matches);
+                    $pattern = self::build_regex($search->get('search'), self::DB_REGEX_MODIFIERS);
+                    if (preg_match_all($pattern, $data, $matches) === false) {
+                        mtrace(get_string('errorregexfailed', 'tool_advancedreplace', (object) [
+                            'item' => "$table.{$column->name} id {$record->id}",
+                            'error' => self::get_regex_error(),
+                        ]));
+                    }
 
                     if (!empty($matches[0])) {
                         foreach ($matches[0] as $match) {
@@ -776,7 +826,20 @@ class helper {
     ) {
         global $DB;
 
+        if (!$DB->get_manager()->table_exists($table)) {
+            $rowcounts['error']++;
+            $errorhandler->add([$rownum, $table, $columnname, $id,
+                get_string('errorreplacinginvalidtable', 'tool_advancedreplace')]);
+            return;
+        }
+
         $column = self::get_column_info($table, $columnname);
+        if ($column === null) {
+            $rowcounts['error']++;
+            $errorhandler->add([$rownum, $table, $columnname, $id,
+                get_string('errorreplacinginvalidcolumn', 'tool_advancedreplace')]);
+            return;
+        }
 
         // Enclose the column name by the proper quotes if it's a reserved word.
         $columnname = $DB->get_manager()->generator->getEncQuoted($column->name);
@@ -911,52 +974,87 @@ class helper {
             'replacematch' => 0,
         ];
 
-        // Start at 1 since we've already read the header.
-        $rownum = 1;
-        while ($record = $csvimport->next()) {
-            $rownum++;
-            if (empty($record[$replaceindex])) {
-                // Skip if 'replace' is empty.
-                $rowcounts['skipped']++;
-            } else if ($type == 'db') {
-                // Replace the string.
-                self::replace_text_in_a_record(
-                    $rownum,
-                    $record[$tableindex],
-                    $record[$columnindex],
-                    $record[$matchindex],
-                    $record[$replaceindex],
-                    $record[$idindex],
-                    $rowcounts,
-                    $errorhandler
-                );
-            } else if ($type == 'files') {
-                $filerecord = [
-                    'contextid' => $record[$contextidindex],
-                    'component' => $record[$componentindex],
-                    'filearea' => $record[$fileareaindex],
-                    'itemid' => $record[$itemidindex],
-                    'filepath' => $record[$filepathindex],
-                    'filename' => $record[$filenameindex],
-                    'mimetype' => $record[$mimeindex],
-                ];
+        $replacements = [];
+        $completed = false;
+        try {
+            // Start at 1 since we've already read the header.
+            $rownum = 1;
+            while ($record = $csvimport->next()) {
+                $rownum++;
+                if (empty($record[$replaceindex])) {
+                    // Skip if 'replace' is empty.
+                    $rowcounts['skipped']++;
+                } else if ($type == 'db' && !ctype_digit((string) $record[$idindex])) {
+                    $rowcounts['error']++;
+                    $errorhandler->add([$rownum, $record[$tableindex], $record[$columnindex], $record[$idindex],
+                        get_string('errorreplacinginvalidid', 'tool_advancedreplace')]);
+                } else if ($type == 'db') {
+                    // Replace the string.
+                    self::replace_text_in_a_record(
+                        $rownum,
+                        $record[$tableindex],
+                        $record[$columnindex],
+                        $record[$matchindex],
+                        $record[$replaceindex],
+                        (int) $record[$idindex],
+                        $rowcounts,
+                        $errorhandler
+                    );
+                    $replacements[] = [
+                        'match' => $record[$matchindex],
+                        'replace' => $record[$replaceindex],
+                        'table' => $record[$tableindex],
+                        'column' => $record[$columnindex],
+                    ];
+                } else if ($type == 'files') {
+                    $filerecord = [
+                        'contextid' => $record[$contextidindex],
+                        'component' => $record[$componentindex],
+                        'filearea' => $record[$fileareaindex],
+                        'itemid' => $record[$itemidindex],
+                        'filepath' => $record[$filepathindex],
+                        'filename' => $record[$filenameindex],
+                        'mimetype' => $record[$mimeindex],
+                    ];
 
-                self::replace_text_in_file(
-                    $rownum,
-                    $filerecord,
-                    $record[$matchindex],
-                    $record[$replaceindex],
-                    $record[$internalindex],
-                    $rowcounts,
-                    $errorhandler
+                    self::replace_text_in_file(
+                        $rownum,
+                        $filerecord,
+                        $record[$matchindex],
+                        $record[$replaceindex],
+                        $record[$internalindex],
+                        $rowcounts,
+                        $errorhandler
+                    );
+                    $replacements[] = [
+                        'match' => $record[$matchindex],
+                        'replace' => $record[$replaceindex],
+                        'filepath' => $record[$filepathindex],
+                        'filename' => $record[$filenameindex],
+                    ];
+                }
+                // Update the progress bar.
+                $progress->update_full(
+                    100 * $rownum / $contentcount,
+                    $rowcounts['success'] . " Replaced, " . $rowcounts['skipped'] . " Skipped, "
+                        . $rowcounts['replacematch'] . " Already replaced, " . $rowcounts['error'] . " Errors."
                 );
             }
-            // Update the progress bar.
-            $progress->update_full(
-                100 * $rownum / $contentcount,
-                $rowcounts['success'] . " Replaced, " . $rowcounts['skipped'] . " Skipped, "
-                    . $rowcounts['replacematch'] . " Already replaced, " . $rowcounts['error'] . " Errors."
-            );
+            $completed = true;
+        } finally {
+            // Record the outcome in the logs, even if processing was interrupted part way through.
+            \tool_advancedreplace\event\replace_executed::create([
+                'other' => [
+                    'type' => $type,
+                    'rows' => $rownum - 1,
+                    'success' => $rowcounts['success'],
+                    'skipped' => $rowcounts['skipped'],
+                    'replacematch' => $rowcounts['replacematch'],
+                    'error' => $rowcounts['error'],
+                    'completed' => $completed,
+                    'replacements' => $replacements,
+                ],
+            ])->trigger();
         }
         $csvimport->cleanup();
         $csvimport->close();

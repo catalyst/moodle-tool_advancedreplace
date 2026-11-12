@@ -29,6 +29,7 @@ $url = new moodle_url('/admin/tool/advancedreplace/files.php');
 $PAGE->set_url($url);
 
 admin_externalpage_setup('tool_advancedreplace_files');
+require_admin();
 
 $id = optional_param('id', null, PARAM_INT);
 $delete = optional_param('delete', null, PARAM_INT);
@@ -42,7 +43,9 @@ if (isset($copy)) {
 if (isset($delete)) {
     require_sesskey();
     $files = new \tool_advancedreplace\files($delete);
+    $event = $files->create_event('deleted');
     $files->delete();
+    $event->trigger();
     \core\notification::success(get_string('searchdeleted', 'tool_advancedreplace'));
     redirect($url);
 }
@@ -57,6 +60,7 @@ if (isset($requeue)) {
         throw new \moodle_exception('errornotfinished', 'tool_advancedreplace');
     }
     $files->reset_and_requeue();
+    $files->create_event('requeued')->trigger();
     \core\notification::success(get_string('searchrequeued', 'tool_advancedreplace'));
     redirect(new moodle_url('/admin/tool/advancedreplace/files_report.php', ['id' => $requeue]));
 }
@@ -76,6 +80,7 @@ if (isset($id)) {
         if (empty($data->id)) {
             $files = new \tool_advancedreplace\files(0, $data);
             $files->create();
+            $files->create_event('created')->trigger();
             $files->queue_task();
 
             \core\notification::success(get_string('searchqueued', 'tool_advancedreplace'));

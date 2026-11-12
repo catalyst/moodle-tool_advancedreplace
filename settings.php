@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-if ($hassiteconfig) {
+if ($hassiteconfig && is_siteadmin()) {
     $category = new admin_category('advancereplacefolder', get_string('pluginname', 'tool_advancedreplace'));
     $ADMIN->add('tools', $category);
 
