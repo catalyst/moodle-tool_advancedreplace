@@ -596,6 +596,91 @@ final class helper_test extends \advanced_testcase {
     }
 
     /**
+     * Data provider for test_handle_replace_csv_preserves_values.
+     *
+     * @return array
+     */
+    public static function handle_replace_csv_provider(): array {
+        return [
+            'starts with dash' => [
+                "- Review submissions<br>- Review sketches",
+                "- Echo video<br>- Review sketches",
+            ],
+            'starts with equals' => ['=SUM(A1) test', 'replaced equals'],
+            'starts with plus' => ['+1 test', 'replaced plus'],
+            'starts with at' => ['@mention test', 'replaced at'],
+            'mixed LF and CRLF' => [
+                "<p>Line one</p>\r\n<p>Line two</p>\nLine three\r\nend",
+                "<p>Line one</p>\r\n<p>Replaced</p>\nLine three\r\nend",
+            ],
+            'quotes and commas' => [
+                'He said "hello, world" and left',
+                'She said "goodbye, world" and stayed',
+            ],
+        ];
+    }
+
+    /**
+     * Test that handle_replace_csv uses the match and replace values exactly as written in the CSV.
+     *
+     * @dataProvider handle_replace_csv_provider
+     * @covers \tool_advancedreplace\helper::handle_replace_csv
+     * @param string $original Value stored in the database, also used as the match.
+     * @param string $replacement Replacement value.
+     */
+    public function test_handle_replace_csv_preserves_values(string $original, string $replacement): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $page = $this->getDataGenerator()->create_module('page', (object)[
+            'course' => $course,
+            'content' => $original,
+            'contentformat' => FORMAT_HTML,
+        ]);
+        // Make sure the stored value is exactly what the CSV will match.
+        $DB->set_field('page', 'content', $original, ['id' => $page->id]);
+
+        $stream = fopen('php://temp', 'w+b');
+        fputcsv($stream, ['table', 'column', 'id', 'match', 'replace'], ',', '"', '\\');
+        fputcsv($stream, ['page', 'content', $page->id, $original, $replacement], ',', '"', '\\');
+        rewind($stream);
+        $csv = stream_get_contents($stream);
+        fclose($stream);
+
+        $progress = $this->createMock(\progress_bar::class);
+        $this->expectOutputRegex('/.*/s');
+        helper::handle_replace_csv($csv, $progress);
+
+        $this->assertSame($replacement, $DB->get_field('page', 'content', ['id' => $page->id]));
+    }
+
+    /**
+     * Test that a CSV with a BOM and empty lines is still parsed.
+     *
+     * @covers \tool_advancedreplace\helper::handle_replace_csv
+     */
+    public function test_handle_replace_csv_bom_and_blank_lines(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $page = $this->getDataGenerator()->create_module('page', (object)[
+            'course' => $course,
+            'content' => 'old text',
+            'contentformat' => FORMAT_HTML,
+        ]);
+
+        $csv = "\xEF\xBB\xBFtable,column,id,match,replace\r\n\r\npage,content,{$page->id},old text,new text\r\n\r\n";
+
+        $progress = $this->createMock(\progress_bar::class);
+        $this->expectOutputRegex('/.*/s');
+        helper::handle_replace_csv($csv, $progress);
+
+        $this->assertSame('new text', $DB->get_field('page', 'content', ['id' => $page->id]));
+    }
+
+    /**
      * Test for estimate_table_rows
      *
      * @covers \tool_advancedreplace\helper::estimate_table_rows
