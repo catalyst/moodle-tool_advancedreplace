@@ -24,7 +24,6 @@ require_once($CFG->dirroot . '/question/engine/bank.php');
 
 use core\exception\moodle_exception;
 use core_text;
-use csv_import_reader;
 use database_column_info;
 use progress_bar;
 use tool_advancedreplace\db_search;
@@ -830,18 +829,39 @@ class helper {
     }
 
     /**
+     * Parse CSV content into rows without altering field values (line endings are preserved).
+     *
+     * @param string $data CSV data.
+     * @return array[] Rows, the first being the header. Empty lines are skipped.
+     */
+    private static function parse_replace_csv(string $data): array {
+        $data = \core_text::trim_utf8_bom($data);
+        $fp = fopen('php://temp', 'w+b');
+        fwrite($fp, $data);
+        rewind($fp);
+        $rows = [];
+        while (($row = fgetcsv($fp, 0, ',', '"', '\\')) !== false) {
+            if ($row === [null]) {
+                continue;
+            }
+            $rows[] = $row;
+        }
+        fclose($fp);
+        return $rows;
+    }
+
+    /**
      * Takes csv data and replaces all matching strings within the DB
      * @param string $data CSV data to be read.
      * @param progress_bar $progress a progress bar.
      * @param string $type type of replace db || files.
      */
     public static function handle_replace_csv(string $data, progress_bar $progress, string $type = 'db') {
-        // Load the CSV content.
-        $iid = csv_import_reader::get_new_iid('tool_advancedreplace');
-        $csvimport = new csv_import_reader($iid, 'tool_advancedreplace');
-        $contentcount = $csvimport->load_csv_content($data, 'utf-8', 'comma');
+        // Parse the CSV directly. csv_import_reader is not used because it normalises line endings
+        // and prefixes values starting with = + - @ with a quote, which breaks exact string matching.
+        $rows = self::parse_replace_csv($data);
 
-        if ($contentcount === false) {
+        if (empty($rows)) {
             if (CLI_SCRIPT) {
                 cli_error(get_string('errorinvalidfile', 'tool_advancedreplace'));
             } else {
@@ -850,14 +870,8 @@ class helper {
         }
 
         // Read the header.
-        $header = $csvimport->get_columns();
-        if (empty($header)) {
-            if (CLI_SCRIPT) {
-                cli_error(get_string('errorinvalidfile', 'tool_advancedreplace'));
-            } else {
-                throw new \moodle_exception(get_string('errorinvalidfile', 'tool_advancedreplace'));
-            }
-        }
+        $header = array_map('trim', array_shift($rows));
+        $contentcount = count($rows);
 
         // Check if all required columns are present, and show which ones are missing.
         if ($type == 'db') {
@@ -903,7 +917,6 @@ class helper {
         $errorhandler->set_type($type);
 
         // Read the data and replace the strings.
-        $csvimport->init();
         $rowcounts = [
             'success' => 0,
             'skipped' => 0,
@@ -913,7 +926,7 @@ class helper {
 
         // Start at 1 since we've already read the header.
         $rownum = 1;
-        while ($record = $csvimport->next()) {
+        foreach ($rows as $record) {
             $rownum++;
             if (empty($record[$replaceindex])) {
                 // Skip if 'replace' is empty.
@@ -958,8 +971,6 @@ class helper {
                     . $rowcounts['replacematch'] . " Already replaced, " . $rowcounts['error'] . " Errors."
             );
         }
-        $csvimport->cleanup();
-        $csvimport->close();
         $errorhandler->finish();
     }
 
