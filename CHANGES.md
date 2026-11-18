@@ -1,5 +1,18 @@
 # Changes
 
+## 2025080708
+
+### Fixed
+
+- Replacing from a CSV no longer fails with "Search string not found in record" when the value contains
+  CRLF or lone CR line endings, including values that mix LF and CRLF. The CSV reader converts all line
+  endings to LF, so a search string containing line breaks is now matched ignoring line ending
+  differences. Every occurrence is replaced, and the line endings of the replacement follow the matched text.
+
+### Changed
+
+- The minimum required Moodle version is now 4.1 (2022112800), matching the supported versions.
+
 ## 2025080707
 
 ### Security
