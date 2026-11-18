@@ -596,6 +596,97 @@ final class helper_test extends \advanced_testcase {
     }
 
     /**
+     * Data provider for test_replace_ignoring_line_endings.
+     *
+     * @return array
+     */
+    public static function replace_ignoring_line_endings_provider(): array {
+        return [
+            'mixed LF and CRLF' => ["a\r\nb\nc\r\nd", "a\nb\nc\nd", "x\ny", "x\r\ny"],
+            'lone CR' => ["a\rb c", "a\nb", "X", "X c"],
+            'replacement takes matched line ending' => [
+                "<p>a</p>\r\n<p>b</p>", "<p>a</p>\n<p>b</p>", "<p>a</p>\n<p>c</p>", "<p>a</p>\r\n<p>c</p>",
+            ],
+            'exact and variant occurrences' => [
+                "a\nb and a\r\nb", "a\nb", "x\ny", "x\ny and x\r\ny",
+            ],
+            'exact match keeps the replacement as is' => ["a\nb", "a\nb", "x\r\ny", "x\r\ny"],
+            'no line ending in search' => ["abc", "abc", "x", null],
+            'not found' => ["a\r\nb", "a\nc", "x", null],
+        ];
+    }
+
+    /**
+     * Test replace_ignoring_line_endings.
+     *
+     * @dataProvider replace_ignoring_line_endings_provider
+     * @covers \tool_advancedreplace\helper::replace_ignoring_line_endings
+     * @param string $subject Stored value.
+     * @param string $search Search string.
+     * @param string $replace Replacement.
+     * @param string|null $expected Expected result.
+     */
+    public function test_replace_ignoring_line_endings(string $subject, string $search, string $replace, ?string $expected): void {
+        $this->assertSame($expected, helper::replace_ignoring_line_endings($subject, $search, $replace));
+    }
+
+    /**
+     * Test that handle_replace_csv matches values whose line endings were normalised by the CSV reader.
+     *
+     * @covers \tool_advancedreplace\helper::handle_replace_csv
+     */
+    public function test_handle_replace_csv_mixed_line_endings(): void {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/csvlib.class.php');
+        $this->resetAfterTest();
+
+        $original = "<p>Line one</p>\r\n<p>Line two</p>\nLine three\r\nend";
+        $course = $this->getDataGenerator()->create_course();
+        $page = $this->getDataGenerator()->create_module('page', (object)[
+            'course' => $course,
+            'content' => $original,
+            'contentformat' => FORMAT_HTML,
+        ]);
+        $DB->set_field('page', 'content', $original, ['id' => $page->id]);
+
+        $stream = fopen('php://temp', 'w+b');
+        fputcsv($stream, ['table', 'column', 'id', 'match', 'replace'], ',', '"', '\\');
+        $replacement = "<p>Line one</p>\n<p>Replaced</p>\nLine three\nend";
+        fputcsv($stream, ['page', 'content', $page->id, $original, $replacement], ',', '"', '\\');
+        rewind($stream);
+        $csv = stream_get_contents($stream);
+        fclose($stream);
+
+        $progress = $this->createMock(\progress_bar::class);
+        $this->expectOutputRegex('/.*/s');
+        helper::handle_replace_csv($csv, $progress);
+
+        $expected = "<p>Line one</p>\r\n<p>Replaced</p>\r\nLine three\r\nend";
+        $this->assertSame($expected, $DB->get_field('page', 'content', ['id' => $page->id]));
+    }
+
+    /**
+     * Test that a record already containing the replacement with different line endings is reported as a match.
+     *
+     * @covers \tool_advancedreplace\helper::replace_text_in_a_record
+     */
+    public function test_replace_text_in_a_record_replacematch_line_endings(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $page = $this->getDataGenerator()->create_module('page', (object)['course' => $course]);
+        $DB->set_field('page', 'content', "x\r\ny", ['id' => $page->id]);
+
+        $rowcounts = ['success' => 0, 'error' => 0, 'replacematch' => 0];
+        $errorhandler = new replace_error_handler();
+        helper::replace_text_in_a_record(1, 'page', 'content', "a\nb", "x\ny", $page->id, $rowcounts, $errorhandler);
+
+        $this->assertSame(1, $rowcounts['replacematch']);
+        $this->assertSame(0, $rowcounts['error']);
+    }
+
+    /**
      * Test for estimate_table_rows
      *
      * @covers \tool_advancedreplace\helper::estimate_table_rows

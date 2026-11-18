@@ -864,21 +864,57 @@ class helper {
             return;
         }
 
-        $escapedsearchstring = str_replace("\n", "\r\n", $search);
-
-        if (strpos($record->$columnname, $search) !== false) {
+        // Searches containing line breaks are matched ignoring line ending differences, so every variant is replaced.
+        $newstring = self::replace_ignoring_line_endings($record->$columnname, $search, $replace);
+        if ($newstring === null && strpos($record->$columnname, $search) !== false) {
             $newstring = str_replace($search, $replace, $record->$columnname);
+        }
+
+        if ($newstring !== null) {
             $DB->set_field($table, $columnname, $newstring, ['id' => $id]) ? $rowcounts['success']++ : $rowcounts['error']++;
-        } else if (strpos($record->$columnname, $escapedsearchstring) !== false) {
-            $newstring = str_replace($escapedsearchstring, $replace, $record->$columnname);
-            $DB->set_field($table, $columnname, $newstring, ['id' => $id]) ? $rowcounts['success']++ : $rowcounts['error']++;
-        } else if (strpos($record->$columnname, $replace) !== false) {
+        } else if (
+            strpos($record->$columnname, $replace) !== false
+                || self::replace_ignoring_line_endings($record->$columnname, $replace, $replace) !== null
+        ) {
             $rowcounts['replacematch']++;
         } else {
             $rowcounts['error']++;
             $errorhandler->add([$rownum, $table, $columnname, $id,
                 get_string('errorreplacingstring', 'tool_advancedreplace')]);
         }
+    }
+
+    /**
+     * Replace a string in a value, treating CRLF, CR and LF in the search string as equivalent.
+     *
+     * The csv import reader converts all line endings to LF, so the search string may differ from the stored
+     * value only by its line endings. Every occurrence is replaced. Where the matched text differs from the
+     * search string in its line endings, the line endings in the replacement are converted to those of the
+     * matched text.
+     *
+     * @param string $subject The stored value.
+     * @param string $search The search string.
+     * @param string $replace The replacement string.
+     * @return string|null The new value, or null if the search string was not found.
+     */
+    public static function replace_ignoring_line_endings(string $subject, string $search, string $replace): ?string {
+        $parts = preg_split('/\r\n|\r|\n/', $search);
+        if (count($parts) < 2) {
+            return null;
+        }
+        $eol = '(\r\n|\r|\n)';
+        $pattern = '/' . implode($eol, array_map(fn($part) => preg_quote($part, '/'), $parts)) . '/';
+
+        $found = false;
+        $result = preg_replace_callback($pattern, function ($matches) use ($search, $replace, &$found) {
+            $found = true;
+            if ($matches[0] === $search) {
+                return $replace;
+            }
+            return preg_replace('/\r\n|\r|\n/', $matches[1], $replace);
+        }, $subject);
+
+        return $found ? $result : null;
     }
 
     /**
