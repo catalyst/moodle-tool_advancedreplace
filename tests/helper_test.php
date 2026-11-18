@@ -607,6 +607,10 @@ final class helper_test extends \advanced_testcase {
             'replacement takes matched line ending' => [
                 "<p>a</p>\r\n<p>b</p>", "<p>a</p>\n<p>b</p>", "<p>a</p>\n<p>c</p>", "<p>a</p>\r\n<p>c</p>",
             ],
+            'exact and variant occurrences' => [
+                "a\nb and a\r\nb", "a\nb", "x\ny", "x\ny and x\r\ny",
+            ],
+            'exact match keeps the replacement as is' => ["a\nb", "a\nb", "x\r\ny", "x\r\ny"],
             'no line ending in search' => ["abc", "abc", "x", null],
             'not found' => ["a\r\nb", "a\nc", "x", null],
         ];

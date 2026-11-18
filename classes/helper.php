@@ -864,10 +864,10 @@ class helper {
             return;
         }
 
-        if (strpos($record->$columnname, $search) !== false) {
+        // Searches containing line breaks are matched ignoring line ending differences, so every variant is replaced.
+        $newstring = self::replace_ignoring_line_endings($record->$columnname, $search, $replace);
+        if ($newstring === null && strpos($record->$columnname, $search) !== false) {
             $newstring = str_replace($search, $replace, $record->$columnname);
-        } else {
-            $newstring = self::replace_ignoring_line_endings($record->$columnname, $search, $replace);
         }
 
         if ($newstring !== null) {
@@ -888,7 +888,9 @@ class helper {
      * Replace a string in a value, treating CRLF, CR and LF in the search string as equivalent.
      *
      * The csv import reader converts all line endings to LF, so the search string may differ from the stored
-     * value only by its line endings. Line endings in the replacement are converted to those of the matched text.
+     * value only by its line endings. Every occurrence is replaced. Where the matched text differs from the
+     * search string in its line endings, the line endings in the replacement are converted to those of the
+     * matched text.
      *
      * @param string $subject The stored value.
      * @param string $search The search string.
@@ -904,8 +906,11 @@ class helper {
         $pattern = '/' . implode($eol, array_map(fn($part) => preg_quote($part, '/'), $parts)) . '/';
 
         $found = false;
-        $result = preg_replace_callback($pattern, function ($matches) use ($replace, &$found) {
+        $result = preg_replace_callback($pattern, function ($matches) use ($search, $replace, &$found) {
             $found = true;
+            if ($matches[0] === $search) {
+                return $replace;
+            }
             return preg_replace('/\r\n|\r|\n/', $matches[1], $replace);
         }, $subject);
 
