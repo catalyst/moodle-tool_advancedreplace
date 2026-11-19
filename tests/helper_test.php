@@ -440,13 +440,16 @@ final class helper_test extends \advanced_testcase {
 
             // Insert more rows than the batch size, with matches spread across the id range,
             // including the first and last rows, so matches fall in several different windows.
+            $firstid = (int) $DB->get_field_sql('SELECT MAX(id) FROM {course_categories}') + 1;
             $matchingids = [];
             for ($i = 0; $i < 10; $i++) {
                 $ismatch = ($i % 3 === 0);
                 $description = $ismatch
                     ? "Category $i contains $searchstring in its description"
                     : "Category $i has no interesting content";
-                $id = $DB->insert_record('course_categories', (object) [
+                $id = $firstid + 2 * $i;
+                $DB->import_record('course_categories', (object) [
+                    'id' => $id,
                     'name' => 'Batch test category ' . $i,
                     'path' => '/',
                     'description' => $description,
@@ -508,12 +511,14 @@ final class helper_test extends \advanced_testcase {
             $searchstring = 'FINDTHISUNIQUETEXTSUMMARY';
 
             // Only the last row matches, so earlier (empty) batch windows must not stop the search early.
+            $firstid = (int) $DB->get_field_sql('SELECT MAX(id) FROM {course_categories}') + 1;
             for ($i = 0; $i < 6; $i++) {
                 $ismatch = ($i === 5);
                 $description = $ismatch
                     ? "Category $i contains $searchstring in its description"
                     : "Category $i has no interesting content";
-                $DB->insert_record('course_categories', (object) [
+                $DB->import_record('course_categories', (object) [
+                    'id' => $firstid + $i,
                     'name' => 'Summary batch test category ' . $i,
                     'path' => '/',
                     'description' => $description,
