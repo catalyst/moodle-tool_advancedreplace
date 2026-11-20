@@ -97,6 +97,40 @@ class search extends \core\form\persistent {
         $mform->addElement('checkbox', 'summary', get_string('field_summary', 'tool_advancedreplace'));
         $mform->addHelpButton('summary', 'field_summary', 'tool_advancedreplace');
 
+        $mform->addElement(
+            'date_time_selector',
+            'timemodifiedfrom',
+            get_string('reportfilterfrom', 'tool_advancedreplace'),
+            ['optional' => true]
+        );
+        $mform->addHelpButton('timemodifiedfrom', 'field_timemodified', 'tool_advancedreplace');
+        $mform->addElement(
+            'date_time_selector',
+            'timemodifiedto',
+            get_string('reportfilterto', 'tool_advancedreplace'),
+            ['optional' => true]
+        );
+
         $this->add_action_buttons(true, get_string('search'));
+    }
+
+    /**
+     * Extra validation of the time filter.
+     *
+     * @param \stdClass $data Data to validate.
+     * @param array $files Array of files.
+     * @param array $errors Currently reported errors.
+     * @return array of additional errors.
+     */
+    protected function extra_validation($data, $files, array &$errors) {
+        $newerrors = [];
+        if (
+            !empty($data->timemodifiedfrom) &&
+            !empty($data->timemodifiedto) &&
+            $data->timemodifiedfrom > $data->timemodifiedto
+        ) {
+            $newerrors['timemodifiedto'] = get_string('reportfilterinvalidrange', 'tool_advancedreplace');
+        }
+        return $newerrors;
     }
 }
